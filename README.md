@@ -4,7 +4,6 @@ TomoCooldown is part of a family of standalone addons, each with its own color i
 
 | Addon | Color | Purpose |
 |---|---|---|
-| **TomoMod** | Teal `#0cd29f` | Full UI suite (source) |
 | **TomoPlates** | Violet `#8b5cf6` | Nameplate replacement |
 | **TomoFrames** | Amber `#f59e0b` | Unit frame replacement |
 | **TomoCooldown** | Cyan `#06b6d4` | Cooldowns, resources, Skyriding |
@@ -12,6 +11,7 @@ TomoCooldown is part of a family of standalone addons, each with its own color i
 | **TomoMail** | Yellow `#8b5cf6` | Streamlined in-game mail manager |
 | **TomoPorter** | Blue `#8b5cf6` | All your dungeon and raid teleporters |
 | **TomoMythic** | Violet `#8b5cf6` | Mythic+ interface |
+| **TomoSkins** | Rose `#f43f5e` | UI reskin |
 
 All 8 addons are compatible with each other and can be used in any combination.
 
