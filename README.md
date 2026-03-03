@@ -12,8 +12,9 @@ TomoCooldown is part of a family of standalone addons, each with its own color i
 | **TomoPorter** | Blue `#8b5cf6` | All your dungeon and raid teleporters |
 | **TomoMythic** | Violet `#8b5cf6` | Mythic+ interface |
 | **TomoSkins** | Rose `#f43f5e` | UI reskin |
+| **TomoCastbar** | Doré `#ffd1b559` | CastBar |
 
-All 8 addons are compatible with each other and can be used in any combination.
+All 9 addons are compatible with each other and can be used in any combination.
 
 ---
 
