@@ -129,10 +129,52 @@ end
 -- Column value population
 ----------------------------------------------------------------------
 
+-- Actions category types: display as simple integer count
+ns.ACTIONS_TYPES = {
+    [Enum.DamageMeterType.Interrupts] = true,
+    [Enum.DamageMeterType.Dispels] = true,
+    [Enum.DamageMeterType.Deaths] = true,
+}
+
 function ns.PopulateColumnValues(button, elementData)
     local total = elementData.totalAmount or 0
     local rate = elementData.amountPerSecond
     local sessionTotal = elementData.sessionTotal
+
+    -- Actions category: show only integer total with trailing dot
+    if elementData.isActionType then
+        button.rateFS:SetText("")
+        button.rateFS:Hide()
+        button.totalFS:SetText("")
+        button.totalFS:Hide()
+        button.pctFS:SetText("")
+        button.pctFS:Hide()
+
+        if not button.actionFS then
+            local fs = button.bar:CreateFontString(nil, "OVERLAY")
+            fs:SetFont(ns.GetFont(), ns.GetFontSize(), "OUTLINE")
+            fs:SetJustifyH("RIGHT")
+            fs:SetShadowOffset(1, -1)
+            fs:SetShadowColor(0, 0, 0, 0.4)
+            button.actionFS = fs
+        end
+        button.actionFS:SetFont(ns.GetFont(), ns.GetFontSize(), "OUTLINE")
+        if not issecretvalue(total) then
+            button.actionFS:SetText(string.format("%d.", math.floor(total + 0.5)))
+        else
+            button.actionFS:SetText("-")
+        end
+        button.actionFS:SetTextColor(unpack(ns.TEXT_PRIMARY))
+        button.actionFS:ClearAllPoints()
+        button.actionFS:SetPoint("RIGHT", button.bar, "RIGHT", -6, ns.GetFontNudge())
+        button.actionFS:Show()
+        return
+    end
+
+    -- Hide actionFS if it was created from a previous Actions view
+    if button.actionFS then
+        button.actionFS:Hide()
+    end
 
     local fsMap = { rate = button.rateFS, total = button.totalFS, pct = button.pctFS }
     for _, col in ipairs(ns.db.columns) do
@@ -166,6 +208,11 @@ function ns.AnchorColumns(button)
     button.pctFS:ClearAllPoints()
     button.totalFS:ClearAllPoints()
     button.rateFS:ClearAllPoints()
+
+    -- Actions mode: actionFS is the only right-side element
+    if button.actionFS and button.actionFS:IsShown() then
+        return button.actionFS
+    end
 
     local fontSize = ns.GetFontSize()
     local fsMap = { rate = button.rateFS, total = button.totalFS, pct = button.pctFS }

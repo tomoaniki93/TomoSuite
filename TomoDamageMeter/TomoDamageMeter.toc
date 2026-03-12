@@ -1,13 +1,13 @@
 ## Interface: 120001, 120000
 ## 
-## Title: |cffd1b559Tomo|r|cffffffffDamageMeter|r
+## Title: |cffe0115fTomo|r|cffffffffDamageMeter|r
 ## Notes: Standalone Damage Meter addon.
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## 
 ## SavedVariables: TomoDamageMeterDB
 ## Dependencies: Blizzard_DamageMeter
 ## Author: TomoAniki
-## Version: 1.0.0
+## Version: 1.0.1
 ## IconTexture: Interface\Icons\Spell_Target
 
 Locales\enUS.lua

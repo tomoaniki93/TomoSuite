@@ -681,8 +681,11 @@ function ns.CreateMeterWindow(cfg)
         -- Max value for bar scaling
         local maxAmount = sources[1].totalAmount
 
+        local isAction = ns.ACTIONS_TYPES[state.meterType] or false
+        local maxEntries = isAction and 5 or #sources
         local elements = {}
-        for _, source in ipairs(sources) do
+        for i, source in ipairs(sources) do
+            if i > maxEntries then break end
             elements[#elements + 1] = {
                 name = source.name,
                 classFilename = source.classFilename,
@@ -693,6 +696,7 @@ function ns.CreateMeterWindow(cfg)
                 sessionTotal = sessionTotal,
                 sourceGUID = source.sourceGUID,
                 isLocalPlayer = source.isLocalPlayer,
+                isActionType = isAction,
             }
         end
 
@@ -775,6 +779,22 @@ function ns.CreateMeterWindow(cfg)
         Refresh = state.ScheduleRefresh,
         UpdateTimer = function() state.UpdateTimer() end,
         UpdateHeader = function() state.UpdateHeader() end,
+        SetMeterType = function(meterType)
+            state.meterType = meterType
+            cfg.meterType = meterType
+            state.dataGeneration = state.dataGeneration + 1
+            state.CollectData()
+            state.UpdateHeader()
+        end,
+        SetSessionType = function(sessionType)
+            state.sessionType = sessionType
+            cfg.sessionType = sessionType
+            state.dataGeneration = state.dataGeneration + 1
+            state.CollectData()
+            state.UpdateHeader()
+        end,
+        GetMeterType = function() return state.meterType end,
+        GetSessionType = function() return state.sessionType end,
         SetCombatAlpha = function(inCombat)
             local oocAlpha = ns.db and ns.db.oocAlpha or 1
             if inCombat then

@@ -10,7 +10,7 @@ ns.L = L
 -- General
 L["ADDON_NAME"] = "TomoDamageMeter"
 L["ADDON_SHORT"] = "Tomo"
-L["ADDON_PREFIX"] = "|cffd1b559Tomo:|r "
+L["ADDON_PREFIX"] = "|cffe0115fTomo DM :|r "
 
 -- Meter types
 L["DPS"] = "DPS"
@@ -79,9 +79,14 @@ L["SETTINGS_WINDOW_COUNT"] = "Windows: %d / %d"
 L["SETTINGS_COL_RATE"] = "Rate (DPS/HPS)"
 L["SETTINGS_COL_TOTAL"] = "Total"
 L["SETTINGS_COL_PCT"] = "Percent"
+L["SETTINGS_TAB_GENERAL"] = "General"
+L["SETTINGS_TAB_WINDOW"] = "Window %d"
+L["SETTINGS_METER_TYPE"] = "Meter Type"
+L["SETTINGS_SESSION_TYPE"] = "Session Type"
+L["SETTINGS_LOCKED"] = "Lock Position"
 
 -- Slash commands
-L["CMD_RESET"] = "Data reset."
+L["CMD_RESET"] = "Données réinitialisées."
 L["CMD_LOCKED"] = "Locked"
 L["CMD_UNLOCKED"] = "Unlocked"
 L["CMD_HELP_HEADER"] = "Commands:"
@@ -90,6 +95,10 @@ L["CMD_HELP_TOGGLE_VIS"] = "  /tdm toggle — toggle window visibility"
 L["CMD_HELP_RESET"] = "  /tdm reset — reset all combat data"
 L["CMD_HELP_LOCK"] = "  /tdm lock — lock/unlock window position"
 L["CMD_HELP_HELP"] = "  /tdm help — this message"
+
+-- Auto-reset
+L["SETTINGS_AUTO_RESET_INSTANCE"] = "Auto-reset on instance entry"
+L["AUTO_RESET_MSG"] = "Data auto-reset (instance entry)."
 
 -- Combat
 L["COMBAT_SETTINGS_UNAVAILABLE"] = "Settings unavailable during combat."

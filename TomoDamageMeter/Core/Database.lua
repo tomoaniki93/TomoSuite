@@ -27,6 +27,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
         ns.db.accentColor = ns.db.accentColor or { ns.ACCENT[1], ns.ACCENT[2], ns.ACCENT[3] }
         ns.db.reportChannel = ns.db.reportChannel or "SAY"
         ns.db.reportLines   = ns.db.reportLines   or 5
+        if ns.db.autoResetOnInstance == nil then ns.db.autoResetOnInstance = true end
 
         ns.ApplyAccentColor()
 
@@ -103,6 +104,26 @@ function ns.RemoveWindow(index)
 end
 
 ----------------------------------------------------------------------
+-- Auto-Reset on Instance Entry
+----------------------------------------------------------------------
+
+local wasInInstance = false
+
+local instanceFrame = CreateFrame("Frame")
+instanceFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+instanceFrame:SetScript("OnEvent", function(self, event)
+    local inInstance, instanceType = IsInInstance()
+    -- party = dungeon, raid = raid, scenario = scenario/delve
+    local isRelevant = inInstance and (instanceType == "party" or instanceType == "raid" or instanceType == "scenario")
+    if isRelevant and not wasInInstance then
+        if ns.db and ns.db.autoResetOnInstance then
+            C_DamageMeter.ResetAllCombatSessions()
+        end
+    end
+    wasInInstance = isRelevant or false
+end)
+
+----------------------------------------------------------------------
 -- Combat Events
 ----------------------------------------------------------------------
 
@@ -114,9 +135,11 @@ dmEventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 dmEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 local timerTicker = nil
+local refreshTicker = nil
 
 dmEventFrame:SetScript("OnEvent", function(self, event)
     if event == "DAMAGE_METER_RESET" then
+        print(ns.L["ADDON_PREFIX"] .. ns.L["CMD_RESET"])
         for _, win in ipairs(ns.windows) do
             win.BumpGeneration()
             win.Refresh()
@@ -131,6 +154,12 @@ dmEventFrame:SetScript("OnEvent", function(self, event)
                 for _, win in ipairs(ns.windows) do win.UpdateTimer() end
             end)
         end
+        -- Periodic refresh during combat for data that doesn't fire update events (actions)
+        if not refreshTicker then
+            refreshTicker = C_Timer.NewTicker(1, function()
+                for _, win in ipairs(ns.windows) do win.Refresh() end
+            end)
+        end
         for _, win in ipairs(ns.windows) do win.UpdateTimer() end
     elseif event == "PLAYER_REGEN_ENABLED" then
         ns.inCombat = false
@@ -138,6 +167,7 @@ dmEventFrame:SetScript("OnEvent", function(self, event)
             win.SetCombatAlpha(false)
         end
         if timerTicker then timerTicker:Cancel(); timerTicker = nil end
+        if refreshTicker then refreshTicker:Cancel(); refreshTicker = nil end
         for _, win in ipairs(ns.windows) do win.UpdateTimer() end
         -- Re-render: names are no longer secret
         for _, win in ipairs(ns.windows) do win.Refresh() end
@@ -156,7 +186,6 @@ SlashCmdList["TDM"] = function(msg)
     local L = ns.L
     if msg == "reset" then
         C_DamageMeter.ResetAllCombatSessions()
-        print(L["ADDON_PREFIX"] .. L["CMD_RESET"])
     elseif msg == "lock" then
         for _, win in ipairs(ns.windows) do
             win.cfg.locked = not win.cfg.locked

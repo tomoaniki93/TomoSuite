@@ -79,6 +79,11 @@ L["SETTINGS_WINDOW_COUNT"] = "Fenêtres : %d / %d"
 L["SETTINGS_COL_RATE"] = "Taux (DPS/HPS)"
 L["SETTINGS_COL_TOTAL"] = "Total"
 L["SETTINGS_COL_PCT"] = "Pourcentage"
+L["SETTINGS_TAB_GENERAL"] = "Général"
+L["SETTINGS_TAB_WINDOW"] = "Fenêtre %d"
+L["SETTINGS_METER_TYPE"] = "Type de mètre"
+L["SETTINGS_SESSION_TYPE"] = "Type de session"
+L["SETTINGS_LOCKED"] = "Verrouiller la position"
 
 -- Slash commands
 L["CMD_RESET"] = "Données réinitialisées."
@@ -90,6 +95,10 @@ L["CMD_HELP_TOGGLE_VIS"] = "  /tdm toggle — basculer la visibilité"
 L["CMD_HELP_RESET"] = "  /tdm reset — réinitialiser les données"
 L["CMD_HELP_LOCK"] = "  /tdm lock — verrouiller/déverrouiller la position"
 L["CMD_HELP_HELP"] = "  /tdm help — ce message"
+
+-- Auto-reset
+L["SETTINGS_AUTO_RESET_INSTANCE"] = "Réinitialiser à l'entrée d'instance"
+L["AUTO_RESET_MSG"] = "Données réinitialisées (entrée d'instance)."
 
 -- Combat
 L["COMBAT_SETTINGS_UNAVAILABLE"] = "Options indisponibles en combat."
