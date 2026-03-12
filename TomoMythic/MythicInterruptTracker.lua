@@ -176,7 +176,8 @@ local function MITDebug(msg)
 end
 
 local function ResolveAlias(spellID)
-    return spellID and (SPELL_ALIASES[spellID] or spellID) or nil
+    if type(spellID) ~= "number" then return nil end
+    return SPELL_ALIASES[spellID] or spellID
 end
 
 local function GetPrimaryInterruptForClass(class)
@@ -206,14 +207,8 @@ end
 local function ShouldShowFrame()
     if not TM.db then return false end
     if not TM.db.showInterrupt then return false end
-    if not TM.db.interrupt then return false end
-    local db = TM.db.interrupt
     local _, instanceType = IsInInstance()
-    if instanceType == "party" then return db.showInDungeon   end
-    if instanceType == "raid"  then return db.showInRaid      end
-    if instanceType == "arena" then return db.showInArena     end
-    if instanceType == "pvp"   then return db.showInBG        end
-    return db.showInOpenWorld
+    return instanceType == "party"
 end
 
 ------------------------------------------------------------
@@ -467,7 +462,7 @@ end
 ------------------------------------------------------------
 
 local function OnSpellCastSucceeded(unit, _, spellID)
-    if not spellID then return end
+    if type(spellID) ~= "number" then return end
     spellID = ResolveAlias(spellID)
     if not ALL_INTERRUPTS[spellID] then return end
 
@@ -1141,9 +1136,22 @@ end)
 function TM:OnInterruptEnterWorld()
     if not MIT.mainFrame then return end
     if ShouldShowFrame() then
+        MIT_EF:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+        MIT_EF:RegisterEvent("CHAT_MSG_ADDON")
+        MIT_EF:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+        MIT_EF:RegisterEvent("SPELLS_CHANGED")
+        MIT_EF:RegisterEvent("INSPECT_READY")
+        MIT_EF:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        MIT_EF:RegisterEvent("UNIT_PET")
+        MIT_EF:RegisterEvent("ROLE_CHANGED_INFORM")
+        MIT_EF:RegisterEvent("GROUP_ROSTER_UPDATE")
+        MIT_EF:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+        MIT_EF:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
         if not MIT.testMode then UpdatePartyMembers() end
         MIT.mainFrame:Show()
     else
+        MIT_EF:UnregisterAllEvents()
+        MIT_EF:RegisterEvent("PLAYER_ENTERING_WORLD")
         MIT.mainFrame:Hide()
     end
 end
