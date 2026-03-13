@@ -510,7 +510,11 @@ local function PopulateColumn(scrollFrame, content, sections, isLegacy)
             table.remove(TomoPorter.allButtons, i)
         end
     end
-    content:SetParent(nil)   -- severs the frame from the hierarchy → GC eligible
+    -- Ne jamais appeler SetParent(nil) en WoW : le moteur déréférence
+    -- le parent nul lors du rendu → ACCESS_VIOLATION (Error #132).
+    -- On masque et on efface la position ; le frame reste en mémoire mais inoffensif.
+    content:Hide()
+    content:ClearAllPoints()
 
     local newContent = CreateFrame("Frame", nil, parent)
     newContent:SetWidth(content:GetWidth())

@@ -159,10 +159,14 @@ function ns.PopulateColumnValues(button, elementData)
             button.actionFS = fs
         end
         button.actionFS:SetFont(ns.GetFont(), ns.GetFontSize(), "OUTLINE")
-        if not issecretvalue(total) then
-            button.actionFS:SetText(string.format("%d.", math.floor(total + 0.5)))
-        else
+        -- totalAmount est une valeur taintée (issue du combat log de l'addon).
+        -- Quand le ScrollBox appelle cet initialiseur via secureexecuterange,
+        -- toute arithmétique sur une valeur taintée lève un LUA_WARNING.
+        -- On doit vérifier issecretvalue avant tout math.floor / opérateur.
+        if issecretvalue(total) then
             button.actionFS:SetText("-")
+        else
+            button.actionFS:SetText(string.format("%d.", math.floor(total + 0.5)))
         end
         button.actionFS:SetTextColor(unpack(ns.TEXT_PRIMARY))
         button.actionFS:ClearAllPoints()
