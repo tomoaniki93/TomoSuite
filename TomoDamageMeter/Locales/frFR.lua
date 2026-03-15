@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"] = "Taille de police"
 L["SETTINGS_BAR_HEIGHT"] = "Hauteur des barres"
 L["SETTINGS_BG_OPACITY"] = "Opacité du fond"
 L["SETTINGS_OOC_OPACITY"] = "Opacité hors combat"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Opacité détail des sorts"
 L["SETTINGS_STRIP_REALM"] = "Masquer les noms de royaume"
 L["SETTINGS_ACCENT_COLOR"] = "Couleur d'accentuation"
 L["SETTINGS_USE_CLASS_COLOR"] = "Utiliser la couleur de classe"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"] = "  /tdm help — ce message"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Réinitialiser à l'entrée d'instance"
+L["SETTINGS_CATEGORIES"] = "Catégories"
+L["SETTINGS_CATEGORIES_MIN"] = "Au moins une catégorie doit rester activée."
 L["AUTO_RESET_MSG"] = "Données réinitialisées (entrée d'instance)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"] = "Indisponible jusqu'à la fin du combat"
 -- Detail
 L["SPELL_BREAKDOWN"] = "Détail des sorts"
 L["NO_DATA"] = "Aucune donnée disponible"
+L["BREAKDOWN_SPELLS_LABEL"] = "sorts"
+L["BREAKDOWN_CRITS_LABEL"] = "crits"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "crit"
+L["BREAKDOWN_COL_SPELL"] = "Sort"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

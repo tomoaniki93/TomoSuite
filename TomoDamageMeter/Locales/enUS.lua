@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"] = "Font Size"
 L["SETTINGS_BAR_HEIGHT"] = "Bar Height"
 L["SETTINGS_BG_OPACITY"] = "Background Opacity"
 L["SETTINGS_OOC_OPACITY"] = "Out of Combat Opacity"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Spell Breakdown Opacity"
 L["SETTINGS_STRIP_REALM"] = "Strip Realm Names"
 L["SETTINGS_ACCENT_COLOR"] = "Accent Color"
 L["SETTINGS_USE_CLASS_COLOR"] = "Use Class Color"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"] = "  /tdm help — this message"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Auto-reset on instance entry"
+L["SETTINGS_CATEGORIES"] = "Categories"
+L["SETTINGS_CATEGORIES_MIN"] = "At least one category must remain enabled."
 L["AUTO_RESET_MSG"] = "Data auto-reset (instance entry)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"] = "Unavailable until after combat"
 -- Detail
 L["SPELL_BREAKDOWN"] = "Spell Breakdown"
 L["NO_DATA"] = "No data available"
+L["BREAKDOWN_SPELLS_LABEL"] = "spells"
+L["BREAKDOWN_CRITS_LABEL"] = "crits"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "crit"
+L["BREAKDOWN_COL_SPELL"] = "Spell"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

@@ -191,6 +191,7 @@ function ns.CreateMeterWindow(cfg)
         local nextIdx = (currentIdx % #ns.SESSION_OPTIONS) + 1
         state.sessionType = ns.SESSION_OPTIONS[nextIdx].type
         state.dataGeneration = state.dataGeneration + 1
+        if ns.HideSpellBreakdown then ns.HideSpellBreakdown() end
         state.CollectData()
         state.UpdateHeader()
     end)
@@ -330,8 +331,16 @@ function ns.CreateMeterWindow(cfg)
     lockBtn:SetScript("OnEnter", function() lockBtn._hl:Show(); lockBtn._icon:SetVertexColor(1, 1, 1) end)
     lockBtn:SetScript("OnLeave", function() lockBtn._hl:Hide(); UpdateLockIcon() end)
 
+    -- Details button (spell breakdown)
+    local detailsBtn = MakeHeaderBtn(lockBtn, ns.TEX_DETAILS)
+    detailsBtn:SetScript("OnClick", function()
+        if ns.ShowSpellBreakdown then
+            ns.ShowSpellBreakdown(nil, nil, state.meterType, state.sessionType, nil)
+        end
+    end)
+
     -- Gear button (settings)
-    local gearBtn = MakeHeaderBtn(lockBtn, ns.TEX_GEAR)
+    local gearBtn = MakeHeaderBtn(detailsBtn, ns.TEX_GEAR)
     gearBtn:SetScript("OnClick", function()
         if InCombatLockdown() then
             print(L["ADDON_PREFIX"] .. L["COMBAT_SETTINGS_UNAVAILABLE"])
@@ -347,13 +356,15 @@ function ns.CreateMeterWindow(cfg)
     ----------------------------------------------------------------------
 
     catBtn:SetScript("OnClick", function()
-        -- Cycle through categories
+        -- Cycle through enabled categories
         local info = ns.TYPE_INFO[state.meterType]
         local currentCat = info and info.catIdx or 1
-        local nextCat = (currentCat % #ns.METER_CATEGORIES) + 1
+        local nextCat = ns.GetNextEnabledCatIdx(currentCat)
+        if not nextCat or nextCat == currentCat then return end
         local newType = ns.METER_CATEGORIES[nextCat].types[1].type
         state.meterType = newType
         state.dataGeneration = state.dataGeneration + 1
+        if ns.HideSpellBreakdown then ns.HideSpellBreakdown() end
         state.CollectData()
         state.UpdateHeader()
     end)
@@ -370,6 +381,7 @@ function ns.CreateMeterWindow(cfg)
         local nextIdx = (currentIdx % #cat.types) + 1
         state.meterType = cat.types[nextIdx].type
         state.dataGeneration = state.dataGeneration + 1
+        if ns.HideSpellBreakdown then ns.HideSpellBreakdown() end
         state.CollectData()
         state.UpdateHeader()
     end)
@@ -540,7 +552,24 @@ function ns.CreateMeterWindow(cfg)
             end)
 
             MakeDraggable(button)
+
+            -- Click: open spell breakdown for this player
+            button:SetScript("OnClick", function(self, btn)
+                if btn == "LeftButton" and self._elementData then
+                    local ed = self._elementData
+                    if ed.sourceGUID and not issecretvalue(ed.sourceGUID) then
+                        local playerName = (not issecretvalue(ed.name) and ns.db.stripRealm)
+                            and ns.StripRealm(ed.name) or (not issecretvalue(ed.name) and ed.name or "?")
+                        if ns.ShowSpellBreakdown then
+                            ns.ShowSpellBreakdown(playerName, ed.sourceGUID, state.meterType, state.sessionType, ed.classFilename)
+                        end
+                    end
+                end
+            end)
         end
+
+        -- Store elementData reference for click handler
+        button._elementData = elementData
 
         -- Update with data
         UpdateButton(button, elementData)
@@ -776,6 +805,7 @@ function ns.CreateMeterWindow(cfg)
             state.meterType = meterType
             cfg.meterType = meterType
             state.dataGeneration = state.dataGeneration + 1
+            if ns.HideSpellBreakdown then ns.HideSpellBreakdown() end
             state.CollectData()
             state.UpdateHeader()
         end,
@@ -783,6 +813,7 @@ function ns.CreateMeterWindow(cfg)
             state.sessionType = sessionType
             cfg.sessionType = sessionType
             state.dataGeneration = state.dataGeneration + 1
+            if ns.HideSpellBreakdown then ns.HideSpellBreakdown() end
             state.CollectData()
             state.UpdateHeader()
         end,

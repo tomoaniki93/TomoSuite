@@ -44,6 +44,51 @@ for catIdx, cat in ipairs(ns.METER_CATEGORIES) do
     end
 end
 
+----------------------------------------------------------------------
+-- Category Enable/Disable Helpers
+----------------------------------------------------------------------
+
+function ns.IsCategoryEnabled(catIdx)
+    if not ns.db or not ns.db.disabledCategories then return true end
+    local cat = ns.METER_CATEGORIES[catIdx]
+    return cat and not ns.db.disabledCategories[cat.name]
+end
+
+function ns.IsTypeEnabled(meterType)
+    local info = ns.TYPE_INFO[meterType]
+    if not info then return false end
+    return ns.IsCategoryEnabled(info.catIdx)
+end
+
+-- Returns the first enabled meter type, or DPS as ultimate fallback
+function ns.GetFirstEnabledType()
+    for catIdx, cat in ipairs(ns.METER_CATEGORIES) do
+        if ns.IsCategoryEnabled(catIdx) then
+            return cat.types[1].type
+        end
+    end
+    return Enum.DamageMeterType.Dps
+end
+
+-- Returns the next enabled category index (wrapping), or nil if none
+function ns.GetNextEnabledCatIdx(currentCatIdx)
+    local total = #ns.METER_CATEGORIES
+    for offset = 1, total do
+        local idx = ((currentCatIdx - 1 + offset) % total) + 1
+        if ns.IsCategoryEnabled(idx) then return idx end
+    end
+    return nil
+end
+
+-- Enforce: if a window's current type belongs to a disabled category, switch it
+function ns.EnforceEnabledTypes()
+    for _, win in ipairs(ns.windows) do
+        if not ns.IsTypeEnabled(win.GetMeterType()) then
+            win.SetMeterType(ns.GetFirstEnabledType())
+        end
+    end
+end
+
 -- Types where amountPerSecond is the primary display value
 ns.RATE_PRIMARY = {
     [Enum.DamageMeterType.Dps] = true,

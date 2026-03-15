@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"]         = "Tamanho da fonte"
 L["SETTINGS_BAR_HEIGHT"]        = "Altura da barra"
 L["SETTINGS_BG_OPACITY"]        = "Opacidade do fundo"
 L["SETTINGS_OOC_OPACITY"]       = "Opacidade fora de combate"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Opacidade detalhamento de feitiço"
 L["SETTINGS_STRIP_REALM"]       = "Remover nome de reino"
 L["SETTINGS_ACCENT_COLOR"]      = "Cor de destaque"
 L["SETTINGS_USE_CLASS_COLOR"]   = "Usar cor da classe"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"]      = "  /tdm help — esta mensagem"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Redefinição automática ao entrar em instância"
+L["SETTINGS_CATEGORIES"] = "Categorias"
+L["SETTINGS_CATEGORIES_MIN"] = "Pelo menos uma categoria deve permanecer ativada."
 L["AUTO_RESET_MSG"]                = "Dados redefinidos automaticamente (entrada em instância)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"]          = "Indisponível até o fim do combate"
 -- Detail
 L["SPELL_BREAKDOWN"] = "Detalhamento de feitiço"
 L["NO_DATA"]         = "Nenhum dado disponível"
+L["BREAKDOWN_SPELLS_LABEL"] = "feitiços"
+L["BREAKDOWN_CRITS_LABEL"]  = "críts"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "crít"
+L["BREAKDOWN_COL_SPELL"] = "Feitiço"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

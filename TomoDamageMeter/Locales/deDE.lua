@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"]         = "Schriftgröße"
 L["SETTINGS_BAR_HEIGHT"]        = "Balkenhöhe"
 L["SETTINGS_BG_OPACITY"]        = "Hintergrundtransparenz"
 L["SETTINGS_OOC_OPACITY"]       = "Transparenz außerhalb des Kampfes"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Zauberdetail-Transparenz"
 L["SETTINGS_STRIP_REALM"]       = "Realmname ausblenden"
 L["SETTINGS_ACCENT_COLOR"]      = "Akzentfarbe"
 L["SETTINGS_USE_CLASS_COLOR"]   = "Klassenfarbe verwenden"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"]      = "  /tdm help — diese Nachricht"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Auto-Reset beim Instanzbeitritt"
+L["SETTINGS_CATEGORIES"] = "Kategorien"
+L["SETTINGS_CATEGORIES_MIN"] = "Mindestens eine Kategorie muss aktiviert bleiben."
 L["AUTO_RESET_MSG"]                = "Daten automatisch zurückgesetzt (Instanzbeitritt)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"]          = "Nicht verfügbar bis nach dem Kampf"
 -- Detail
 L["SPELL_BREAKDOWN"] = "Zauberaufteilung"
 L["NO_DATA"]         = "Keine Daten verfügbar"
+L["BREAKDOWN_SPELLS_LABEL"] = "Zauber"
+L["BREAKDOWN_CRITS_LABEL"]  = "Krits"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "Krit"
+L["BREAKDOWN_COL_SPELL"] = "Zauber"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

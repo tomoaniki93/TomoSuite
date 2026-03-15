@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"]         = "Dimensione carattere"
 L["SETTINGS_BAR_HEIGHT"]        = "Altezza barra"
 L["SETTINGS_BG_OPACITY"]        = "Opacità sfondo"
 L["SETTINGS_OOC_OPACITY"]       = "Opacità fuori combattimento"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Opacità dettaglio incantesimi"
 L["SETTINGS_STRIP_REALM"]       = "Rimuovi nome reame"
 L["SETTINGS_ACCENT_COLOR"]      = "Colore accento"
 L["SETTINGS_USE_CLASS_COLOR"]   = "Usa colore classe"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"]      = "  /tdm help — questo messaggio"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Auto-reset all'ingresso in istanza"
+L["SETTINGS_CATEGORIES"] = "Categorie"
+L["SETTINGS_CATEGORIES_MIN"] = "Almeno una categoria deve rimanere attivata."
 L["AUTO_RESET_MSG"]                = "Dati resettati automaticamente (ingresso in istanza)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"]          = "Non disponibile fino a dopo il combattimento
 -- Detail
 L["SPELL_BREAKDOWN"] = "Dettaglio incantesimi"
 L["NO_DATA"]         = "Nessun dato disponibile"
+L["BREAKDOWN_SPELLS_LABEL"] = "incantesimi"
+L["BREAKDOWN_CRITS_LABEL"]  = "critici"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "crit"
+L["BREAKDOWN_COL_SPELL"] = "Incantesimo"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

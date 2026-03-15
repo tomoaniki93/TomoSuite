@@ -17,6 +17,7 @@ ns.TEX_REPORT    = ADDON_TEX .. "report"
 ns.TEX_LOCK      = ADDON_TEX .. "lock"
 ns.TEX_LOCK_OPEN = ADDON_TEX .. "lock-open"
 ns.TEX_CHEVRON   = ADDON_TEX .. "chevron"
+ns.TEX_DETAILS   = ADDON_TEX .. "details"
 
 -- Tomo palette (dark blue, TomoMythic style)
 ns.BG              = { 0.00, 0.00, 0.00, 0.80 }

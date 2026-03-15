@@ -67,6 +67,7 @@ L["SETTINGS_FONT_SIZE"]         = "Tamaño de fuente"
 L["SETTINGS_BAR_HEIGHT"]        = "Altura de barra"
 L["SETTINGS_BG_OPACITY"]        = "Opacidad de fondo"
 L["SETTINGS_OOC_OPACITY"]       = "Opacidad fuera de combate"
+L["SETTINGS_BREAKDOWN_OPACITY"] = "Opacidad desglose de hechizos"
 L["SETTINGS_STRIP_REALM"]       = "Quitar nombre de reino"
 L["SETTINGS_ACCENT_COLOR"]      = "Color de acento"
 L["SETTINGS_USE_CLASS_COLOR"]   = "Usar color de clase"
@@ -98,6 +99,8 @@ L["CMD_HELP_HELP"]      = "  /tdm help — este mensaje"
 
 -- Auto-reset
 L["SETTINGS_AUTO_RESET_INSTANCE"] = "Autoreinicio al entrar en instancia"
+L["SETTINGS_CATEGORIES"] = "Categorías"
+L["SETTINGS_CATEGORIES_MIN"] = "Al menos una categoría debe permanecer activada."
 L["AUTO_RESET_MSG"]                = "Datos reiniciados automáticamente (entrada en instancia)."
 
 -- Combat
@@ -107,3 +110,8 @@ L["WAITING_COMBAT_END"]          = "No disponible hasta después del combate"
 -- Detail
 L["SPELL_BREAKDOWN"] = "Desglose de hechizos"
 L["NO_DATA"]         = "No hay datos disponibles"
+L["BREAKDOWN_SPELLS_LABEL"] = "hechizos"
+L["BREAKDOWN_CRITS_LABEL"]  = "críts"
+L["BREAKDOWN_CRIT_RATE_LABEL"] = "crít"
+L["BREAKDOWN_COL_SPELL"] = "Hechizo"
+L["BREAKDOWN_COL_TOTAL"] = "Total"

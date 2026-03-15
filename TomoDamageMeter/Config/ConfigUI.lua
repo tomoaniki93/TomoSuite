@@ -21,7 +21,7 @@ end
 
 local function CreateSettingsPanel()
     local frame = CreateFrame("Frame", "TomoDamageMeterSettings", UIParent, "BackdropTemplate")
-    frame:SetSize(340, 520)
+    frame:SetSize(340, 690)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
     frame:SetMovable(true)
@@ -121,7 +121,8 @@ local function CreateSettingsPanel()
         local text = tab:CreateFontString(nil, "ARTWORK")
         text:SetFont(ns.GetFont(), 10, "OUTLINE")
         text:SetTextColor(unpack(ns.TEXT_MUTED))
-        text:SetPoint("CENTER", 0, 0)
+        text:SetWordWrap(false)
+        text:SetNonSpaceWrap(false)
         text:SetText(labelText)
 
         local hl = tab:CreateTexture(nil, "HIGHLIGHT")
@@ -220,6 +221,15 @@ local function CreateSettingsPanel()
             end)
         AddWidget(oocSlider, 50)
 
+        local breakdownSlider = ns.Widgets.CreateSlider(parent, L["SETTINGS_BREAKDOWN_OPACITY"],
+            0.1, 1, 0.05,
+            function() return ns.db.breakdownAlpha end,
+            function(val)
+                ns.db.breakdownAlpha = val
+                if ns.ApplyBreakdownAlpha then ns.ApplyBreakdownAlpha() end
+            end)
+        AddWidget(breakdownSlider, 50)
+
         -- General
         AddSection(L["SETTINGS_GENERAL"])
 
@@ -243,6 +253,45 @@ local function CreateSettingsPanel()
             function() return ns.db.autoResetOnInstance end,
             function(val) ns.db.autoResetOnInstance = val end)
         AddWidget(autoResetCB, 24)
+
+        -- Categories
+        AddSection(L["SETTINGS_CATEGORIES"])
+
+        for catIdx, cat in ipairs(ns.METER_CATEGORIES) do
+            local catLabel = L[cat.name] or cat.name
+            local cb = ns.Widgets.CreateCheckbox(parent, catLabel,
+                function()
+                    return ns.IsCategoryEnabled(catIdx)
+                end,
+                function(val)
+                    if not val then
+                        -- Prevent disabling all categories
+                        local enabledCount = 0
+                        for ci = 1, #ns.METER_CATEGORIES do
+                            if ns.IsCategoryEnabled(ci) then
+                                enabledCount = enabledCount + 1
+                            end
+                        end
+                        if enabledCount <= 1 then
+                            print(L["ADDON_PREFIX"] .. L["SETTINGS_CATEGORIES_MIN"])
+                            -- Rebuild to reset checkbox visual state
+                            if settingsFrame and settingsFrame.RebuildTabs then
+                                settingsFrame.RebuildTabs()
+                            end
+                            return
+                        end
+                        ns.db.disabledCategories[cat.name] = true
+                    else
+                        ns.db.disabledCategories[cat.name] = nil
+                    end
+                    ns.EnforceEnabledTypes()
+                    -- Rebuild tabs to refresh dropdowns and checkbox states
+                    if settingsFrame and settingsFrame.RebuildTabs then
+                        settingsFrame.RebuildTabs()
+                    end
+                end)
+            AddWidget(cb, 24)
+        end
 
         -- Report
         AddSection(L["REPORT"])
@@ -294,12 +343,14 @@ local function CreateSettingsPanel()
 
         -- Meter Type dropdown
         local meterOptions = {}
-        for _, cat in ipairs(ns.METER_CATEGORIES) do
-            for _, t in ipairs(cat.types) do
-                meterOptions[#meterOptions + 1] = {
-                    value = t.type,
-                    label = L[t.key] or t.key,
-                }
+        for catIdx, cat in ipairs(ns.METER_CATEGORIES) do
+            if ns.IsCategoryEnabled(catIdx) then
+                for _, t in ipairs(cat.types) do
+                    meterOptions[#meterOptions + 1] = {
+                        value = t.type,
+                        label = L[t.key] or t.key,
+                    }
+                end
             end
         end
         local meterDD = ns.Widgets.CreateDropdown(parent, L["SETTINGS_METER_TYPE"],
@@ -390,12 +441,18 @@ local function CreateSettingsPanel()
         local windowMgmtIndex = #ns.windows + 2
 
         -- Layout tabs
+        local TAB_MAX_WIDTH = 80
         local xOff = 0
         for i, tab in ipairs(tabs) do
             tab:ClearAllPoints()
             tab:SetPoint("TOPLEFT", tabBar, "TOPLEFT", xOff, 0)
             local textWidth = tab.text:GetStringWidth()
-            tab:SetWidth(textWidth + 16)
+            local tabWidth = math.min(textWidth + 16, TAB_MAX_WIDTH)
+            tab:SetWidth(tabWidth)
+            -- Anchor text inside the tab with margins for truncation
+            tab.text:ClearAllPoints()
+            tab.text:SetPoint("LEFT", tab, "LEFT", 4, 0)
+            tab.text:SetPoint("RIGHT", tab, "RIGHT", -4, 0)
             tab:Show()
             xOff = xOff + tab:GetWidth() + TAB_PAD
         end

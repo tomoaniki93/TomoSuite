@@ -27,7 +27,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
         ns.db.accentColor = ns.db.accentColor or { ns.ACCENT[1], ns.ACCENT[2], ns.ACCENT[3] }
         ns.db.reportChannel = ns.db.reportChannel or "SAY"
         ns.db.reportLines   = ns.db.reportLines   or 5
+        ns.db.breakdownAlpha = ns.db.breakdownAlpha or 0.85
         if ns.db.autoResetOnInstance == nil then ns.db.autoResetOnInstance = true end
+
+        -- Category visibility (empty = all enabled)
+        if not ns.db.disabledCategories then ns.db.disabledCategories = {} end
 
         ns.ApplyAccentColor()
 
@@ -61,6 +65,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
             win.Refresh()
             C_Timer.After(0, win.UpdateHeader)
         end
+
+        -- Enforce: switch any window showing a disabled category
+        ns.EnforceEnabledTypes()
 
     elseif event == "PLAYER_LOGOUT" then
         if ns.db then
@@ -150,6 +157,7 @@ end
 dmEventFrame:SetScript("OnEvent", function(self, event)
     if event == "DAMAGE_METER_RESET" then
         print(ns.L["ADDON_PREFIX"] .. ns.L["CMD_RESET"])
+        if ns.ResetSpellData then ns.ResetSpellData() end
         for _, win in ipairs(ns.windows) do
             win.BumpGeneration()
             win.Refresh()
