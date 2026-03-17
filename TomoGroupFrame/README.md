@@ -1,5 +1,7 @@
 # TomoGroupFrame
 
+# ![TomoGroupFrame](https://img.shields.io/badge/TomoGroupFrame-v1.0.0-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120001-orange?style=for-the-badge)
+
 **Modern group frames for dungeons and raids.**
 
 TomoGroupFrame is a lightweight, fully customizable party and raid frame replacement built for The War Within. Part of the **Tomo Suite** addon collection, it replaces Blizzard's default group frames with a clean, dark-themed UI that stays out of your way while giving you all the information you need.
