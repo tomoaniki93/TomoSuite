@@ -54,6 +54,7 @@ L["opt_show_dispel"]         = "Afficher le contour de dissipation"
 L["opt_dispel_border_size"]  = "Épaisseur du contour"
 L["opt_show_hots"]           = "Afficher les HoTs des soigneurs"
 L["opt_hot_icon_size"]       = "Taille des icônes HoT"
+L["opt_hot_font_size"]       = "Taille texte HoT"
 L["opt_max_hots"]            = "Nombre max de HoTs"
 L["opt_show_power_bar"]      = "Afficher la barre de ressource"
 L["opt_power_height"]        = "Hauteur barre de ressource"
@@ -130,6 +131,10 @@ L["dispel_magic"]            = "Magie"
 L["dispel_curse"]            = "Malédiction"
 L["dispel_disease"]          = "Maladie"
 L["dispel_poison"]           = "Poison"
+
+-- Texte de statut
+L["status_dead"]             = "MORT"
+L["status_offline"]          = "HORS LIGNE"
 
 -- Mode test
 L["test_mode_on"]            = "Mode test |cff00ff00activé|r."

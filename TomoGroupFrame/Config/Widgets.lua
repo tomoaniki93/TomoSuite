@@ -138,6 +138,10 @@ function W.CreateScrollPanel(parent)
         UpdateThumb()
     end)
 
+    scroll:SetScript("OnScrollRangeChanged", function(self, xRange, yRange)
+        UpdateThumb()
+    end)
+
     container.UpdateScroll = UpdateThumb
     container.child = child
     container.scroll = scroll
@@ -267,7 +271,7 @@ function W.CreateSlider(parent, text, minVal, maxVal, step, value, yOffset, call
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetHeight(42)
     frame:SetPoint("TOPLEFT", 16, yOffset)
-    frame:SetPoint("RIGHT", parent, "RIGHT", -20, 0)
+    frame:SetPoint("RIGHT", parent, "RIGHT", -120, 0)
 
     local valText = frame:CreateFontString(nil, "OVERLAY")
     valText:SetFont(FONT, 11, "")

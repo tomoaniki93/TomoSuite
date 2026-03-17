@@ -122,21 +122,33 @@ function HT.CreateHoTContainer(parent, maxIcons, iconSize)
         tex:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- Trim icon borders
         btn.texture = tex
 
-        -- Cooldown spiral
-        local cd = CreateFrame("Cooldown", nil, btn, "CooldownFrameTemplate")
-        cd:SetAllPoints()
-        cd:SetDrawEdge(false)
-        cd:SetDrawSwipe(true)
-        cd:SetSwipeColor(0, 0, 0, 0.5)
-        btn.cooldown = cd
+        -- No cooldown overlay — just show icon + our own duration text
+        btn.cooldown = nil
 
-        -- Border
-        local border = btn:CreateTexture(nil, "OVERLAY")
-        border:SetPoint("TOPLEFT", -1, 1)
-        border:SetPoint("BOTTOMRIGHT", 1, -1)
-        border:SetColorTexture(0, 0, 0, 0.8)
-        border:SetDrawLayer("OVERLAY", -1)
-        btn.border = border
+        -- Border (4 thin edges around the icon)
+        local borderTop = btn:CreateTexture(nil, "OVERLAY")
+        borderTop:SetHeight(1)
+        borderTop:SetPoint("TOPLEFT", -1, 1)
+        borderTop:SetPoint("TOPRIGHT", 1, 1)
+        borderTop:SetColorTexture(0, 0, 0, 1)
+
+        local borderBottom = btn:CreateTexture(nil, "OVERLAY")
+        borderBottom:SetHeight(1)
+        borderBottom:SetPoint("BOTTOMLEFT", -1, -1)
+        borderBottom:SetPoint("BOTTOMRIGHT", 1, -1)
+        borderBottom:SetColorTexture(0, 0, 0, 1)
+
+        local borderLeft = btn:CreateTexture(nil, "OVERLAY")
+        borderLeft:SetWidth(1)
+        borderLeft:SetPoint("TOPLEFT", -1, 1)
+        borderLeft:SetPoint("BOTTOMLEFT", -1, -1)
+        borderLeft:SetColorTexture(0, 0, 0, 1)
+
+        local borderRight = btn:CreateTexture(nil, "OVERLAY")
+        borderRight:SetWidth(1)
+        borderRight:SetPoint("TOPRIGHT", 1, 1)
+        borderRight:SetPoint("BOTTOMRIGHT", 1, -1)
+        borderRight:SetColorTexture(0, 0, 0, 1)
 
         -- Stack count
         local stackText = btn:CreateFontString(nil, "OVERLAY")
@@ -145,6 +157,14 @@ function HT.CreateHoTContainer(parent, maxIcons, iconSize)
         stackText:SetTextColor(1, 1, 1)
         stackText:SetText("")
         btn.stackText = stackText
+
+        -- Duration text
+        local durationText = btn:CreateFontString(nil, "OVERLAY")
+        durationText:SetFont(TGF_GetFontPath("Expressway"), 8, "OUTLINE")
+        durationText:SetPoint("CENTER", 0, 0)
+        durationText:SetTextColor(1, 1, 1)
+        durationText:SetText("")
+        btn.durationText = durationText
 
         btn:Hide()
         container.icons[i] = btn
@@ -158,6 +178,7 @@ function HT.CreateHoTContainer(parent, maxIcons, iconSize)
         end
 
         local hots = HT.GetUnitHoTs(unit, settings.maxHots or #self.icons)
+        local fontSize = settings.hotFontSize or 8
 
         for i, icon in ipairs(self.icons) do
             if i <= #hots then
@@ -165,11 +186,24 @@ function HT.CreateHoTContainer(parent, maxIcons, iconSize)
                 icon.texture:SetTexture(hotData.icon)
                 icon:SetSize(settings.hotIconSize or 16, settings.hotIconSize or 16)
 
-                -- Update cooldown spiral
+                -- Update font sizes
+                icon.stackText:SetFont(TGF_GetFontPath("Expressway"), fontSize, "OUTLINE")
+                if icon.durationText then
+                    icon.durationText:SetFont(TGF_GetFontPath("Expressway"), fontSize, "OUTLINE")
+                end
+
+                -- Update duration text (no cooldown overlay)
                 if hotData.duration and hotData.duration > 0 and hotData.expirationTime and hotData.expirationTime > 0 then
-                    icon.cooldown:SetCooldown(hotData.expirationTime - hotData.duration, hotData.duration)
+                    if icon.durationText then
+                        local remaining = hotData.expirationTime - GetTime()
+                        if remaining > 0 then
+                            icon.durationText:SetText(math.floor(remaining))
+                        else
+                            icon.durationText:SetText("")
+                        end
+                    end
                 else
-                    icon.cooldown:Clear()
+                    if icon.durationText then icon.durationText:SetText("") end
                 end
 
                 -- Stack count

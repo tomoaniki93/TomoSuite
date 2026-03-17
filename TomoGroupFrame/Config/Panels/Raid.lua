@@ -13,6 +13,31 @@ function TGF_ConfigPanel_Raid(parent)
 
     local db = TomoGroupFrameDB.raid
 
+    -- =====================================
+    -- QUICK ACTIONS
+    -- =====================================
+    local testSizeOptions = {
+        { key = "10", label = "10 Players" },
+        { key = "15", label = "15 Players" },
+        { key = "20", label = "20 Players" },
+        { key = "25", label = "25 Players" },
+        { key = "30", label = "30 Players" },
+        { key = "40", label = "40 Players" },
+    }
+    local _, ny = W.CreateDropdown(c, "Test Raid Size", testSizeOptions, tostring(TGF_RaidFrames.GetTestSize()), y, function(val)
+        TGF_RaidFrames.SetTestSize(tonumber(val))
+    end); y = ny
+
+    local _, ny = W.CreateButton(c, "Test Mode (Raid)", 180, y, function()
+        TGF_RaidFrames.ToggleTestMode()
+    end); y = ny
+
+    local _, ny = W.CreateButton(c, "Unlock / Lock", 160, y, function()
+        TGF_RaidFrames.ToggleLock()
+    end); y = ny
+
+    local _, ny = W.CreateSeparator(c, y); y = ny
+
     -- GENERAL
     local _, ny = W.CreateSectionHeader(c, L["section_raid_general"], y); y = ny
 
@@ -88,11 +113,6 @@ function TGF_ConfigPanel_Raid(parent)
         TGF_RaidFrames.Refresh()
     end); y = ny
 
-    local _, ny = W.CreateCheckbox(c, L["opt_show_hp_percent"], db.showHpPercent, y, function(val)
-        db.showHpPercent = val
-        TGF_RaidFrames.Refresh()
-    end); y = ny
-
     local _, ny = W.CreateSlider(c, L["opt_name_truncate"], 4, 16, 1, db.nameTruncateLen, y, function(val)
         db.nameTruncateLen = val
     end); y = ny
@@ -109,16 +129,6 @@ function TGF_ConfigPanel_Raid(parent)
 
     local _, ny = W.CreateSlider(c, L["opt_font_size"] .. " (Name)", 7, 14, 1, db.nameFontSize, y, function(val)
         db.nameFontSize = val
-        TGF_RaidFrames.Refresh()
-    end); y = ny
-
-    local _, ny = W.CreateDropdown(c, L["opt_hp_font"], fontOptions, db.hpFont, y, function(val)
-        db.hpFont = val
-        TGF_RaidFrames.Refresh()
-    end); y = ny
-
-    local _, ny = W.CreateSlider(c, L["opt_font_size"] .. " (HP)", 7, 14, 1, db.hpFontSize, y, function(val)
-        db.hpFontSize = val
         TGF_RaidFrames.Refresh()
     end); y = ny
 
@@ -142,37 +152,18 @@ function TGF_ConfigPanel_Raid(parent)
         db.showHots = val
     end); y = ny
 
-    local _, ny = W.CreateSlider(c, L["opt_hot_icon_size"], 8, 20, 1, db.hotIconSize, y, function(val)
+    local _, ny = W.CreateSlider(c, L["opt_hot_icon_size"], 8, 24, 1, db.hotIconSize, y, function(val)
         db.hotIconSize = val
+        TGF_RaidFrames.Refresh()
+    end); y = ny
+
+    local _, ny = W.CreateSlider(c, L["opt_hot_font_size"], 6, 14, 1, db.hotFontSize, y, function(val)
+        db.hotFontSize = val
         TGF_RaidFrames.Refresh()
     end); y = ny
 
     local _, ny = W.CreateSlider(c, L["opt_max_hots"], 1, 6, 1, db.maxHots, y, function(val)
         db.maxHots = val
-    end); y = ny
-
-    -- BUTTONS
-    local _, ny = W.CreateSeparator(c, y); y = ny
-
-    -- Test size selector
-    local testSizeOptions = {
-        { key = "10", label = "10 Players" },
-        { key = "15", label = "15 Players" },
-        { key = "20", label = "20 Players" },
-        { key = "25", label = "25 Players" },
-        { key = "30", label = "30 Players" },
-        { key = "40", label = "40 Players" },
-    }
-    local _, ny = W.CreateDropdown(c, "Test Raid Size", testSizeOptions, tostring(TGF_RaidFrames.GetTestSize()), y, function(val)
-        TGF_RaidFrames.SetTestSize(tonumber(val))
-    end); y = ny
-
-    local _, ny = W.CreateButton(c, "Test Mode (Raid)", 180, y, function()
-        TGF_RaidFrames.ToggleTestMode()
-    end); y = ny
-
-    local _, ny = W.CreateButton(c, "Unlock / Lock", 160, y, function()
-        TGF_RaidFrames.ToggleLock()
     end); y = ny
 
     y = y - 20

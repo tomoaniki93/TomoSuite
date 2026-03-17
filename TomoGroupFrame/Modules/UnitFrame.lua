@@ -105,7 +105,7 @@ function UF.CreateUnitButton(unitID, parent, settings)
     nameText:SetTextColor(1, 1, 1)
 
     if isPartyLayout then
-        -- Party: name at top center
+        -- Party: name top-center
         nameText:SetPoint("TOP", healthBar, "TOP", 0, -2)
         nameText:SetPoint("LEFT", 18, 0)
         nameText:SetPoint("RIGHT", -4, 0)
@@ -126,9 +126,9 @@ function UF.CreateUnitButton(unitID, parent, settings)
     hpText:SetTextColor(1, 1, 1)
 
     if isPartyLayout then
-        -- Party: HP centered in frame
-        hpText:SetPoint("CENTER", healthBar, "CENTER", 0, -2)
-        hpText:SetJustifyH("CENTER")
+        -- Blizzard style: HP% right-aligned
+        hpText:SetPoint("RIGHT", healthBar, "RIGHT", -6, 0)
+        hpText:SetJustifyH("RIGHT")
     else
         -- Raid / default: HP right
         hpText:SetPoint("RIGHT", -4, 0)
@@ -144,8 +144,8 @@ function UF.CreateUnitButton(unitID, parent, settings)
         roleIcon:SetSize(12, 12)
 
         if isPartyLayout then
-            -- Party: role icon below name, center
-            roleIcon:SetPoint("TOP", nameText, "BOTTOM", 0, -1)
+            -- Party: role icon top-left
+            roleIcon:SetPoint("TOPLEFT", healthBar, "TOPLEFT", 3, -2)
         else
             -- Raid / default: top-left corner
             roleIcon:SetPoint("TOPLEFT", 3, -2)
@@ -236,24 +236,25 @@ function UF.UpdateHealth(btn)
     btn.healthBar:SetMinMaxValues(0, maxHealth)
     btn.healthBar:SetValue(health)
 
-    -- HP text: use C-side SetFormattedText + UnitHealthPercent (TWW API)
-    -- NO Lua arithmetic on secret values
+    -- HP text: 100% C-side chain — zero Lua arithmetic on secret values
+    -- UnitHealthPercent(unit, true, ScaleTo100) returns 0-100 scale in TWW
+    -- SetFormattedText() is C-side and accepts secret numbers natively
     if btn.hpText and btn.settings.showHpPercent then
-        local pct = UnitHealthPercent and UnitHealthPercent(unit)
-        if pct then
-            btn.hpText:SetFormattedText("%d%%", pct)
-        else
-            -- Fallback pre-TWW: SetFormattedText is C-side, handles secret numbers
-            btn.hpText:SetFormattedText("%d%%", health / maxHealth * 100)
-        end
+        btn.hpText:SetFormattedText("%d%%", UnitHealthPercent(unit, true, ScaleTo100))
     end
 
-    -- Class color on health bar
+    -- Class color on health bar + dim class color for deficit (Blizzard style)
     if btn.settings.useClassColor and UnitIsPlayer(unit) then
         local r, g, b = TGF_Utils.GetClassColor(unit)
         btn.healthBar:SetStatusBarColor(r, g, b)
+        if btn.healthBg then
+            btn.healthBg:SetVertexColor(r * 0.15, g * 0.15, b * 0.15, 0.9)
+        end
     else
-        btn.healthBar:SetStatusBarColor(0.2, 0.8, 0.2) -- Default green
+        btn.healthBar:SetStatusBarColor(0.2, 0.8, 0.2)
+        if btn.healthBg then
+            btn.healthBg:SetVertexColor(0.03, 0.12, 0.03, 0.9)
+        end
     end
 end
 
@@ -287,13 +288,8 @@ function UF.UpdateName(btn)
         name = TGF_Utils.TruncateName(name, btn.settings.nameTruncateLen or 12)
         btn.nameText:SetText(name)
 
-        -- Color name by class
-        if btn.settings.useClassColor and UnitIsPlayer(unit) then
-            local r, g, b = TGF_Utils.GetClassColor(unit)
-            btn.nameText:SetTextColor(r, g, b)
-        else
-            btn.nameText:SetTextColor(1, 1, 1)
-        end
+        -- Blizzard style: white name text (class color on bar only)
+        btn.nameText:SetTextColor(1, 1, 1)
     else
         btn.nameText:SetText("")
     end
@@ -342,12 +338,21 @@ function UF.UpdateStatus(btn)
     end
 
     if UnitIsDeadOrGhost(unit) then
-        btn.statusText:SetText("DEAD")
+        btn.statusText:SetText(TGF_L["status_dead"])
         btn.statusText:SetTextColor(0.9, 0.2, 0.2)
         btn.healthBar:SetValue(0)
+        if btn.healthBg then
+            btn.healthBg:SetVertexColor(0.15, 0.05, 0.05, 0.9)
+        end
+        if btn.hpText then btn.hpText:SetText("") end
     elseif not UnitIsConnected(unit) then
-        btn.statusText:SetText("OFFLINE")
+        btn.statusText:SetText(TGF_L["status_offline"])
         btn.statusText:SetTextColor(0.5, 0.5, 0.5)
+        btn.healthBar:SetValue(0)
+        if btn.healthBg then
+            btn.healthBg:SetVertexColor(0.1, 0.1, 0.1, 0.9)
+        end
+        if btn.hpText then btn.hpText:SetText("") end
     else
         btn.statusText:SetText("")
     end

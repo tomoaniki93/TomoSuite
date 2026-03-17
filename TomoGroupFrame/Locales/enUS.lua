@@ -53,6 +53,7 @@ L["opt_show_dispel"]         = "Show Dispel Border"
 L["opt_dispel_border_size"]  = "Dispel Border Size"
 L["opt_show_hots"]           = "Show Healer HoTs"
 L["opt_hot_icon_size"]       = "HoT Icon Size"
+L["opt_hot_font_size"]       = "HoT Text Size"
 L["opt_max_hots"]            = "Max HoTs Shown"
 L["opt_show_power_bar"]      = "Show Power Bar"
 L["opt_power_height"]        = "Power Bar Height"
@@ -129,6 +130,10 @@ L["dispel_magic"]            = "Magic"
 L["dispel_curse"]            = "Curse"
 L["dispel_disease"]          = "Disease"
 L["dispel_poison"]           = "Poison"
+
+-- Status text
+L["status_dead"]             = "DEAD"
+L["status_offline"]          = "OFFLINE"
 
 -- Test mode
 L["test_mode_on"]            = "Test mode |cff00ff00enabled|r."

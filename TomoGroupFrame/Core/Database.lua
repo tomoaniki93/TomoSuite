@@ -63,7 +63,7 @@ TGF_Defaults = {
         useClassColor   = true,
         showName        = true,
         nameTruncateLen = 12,
-        showHpPercent   = true,
+        showHpPercent   = false,
         nameFont        = "Poppins",
         nameFontSize    = 11,
         hpFont          = "Expressway",
@@ -88,7 +88,8 @@ TGF_Defaults = {
 
         -- HoT tracking
         showHots        = true,
-        hotIconSize     = 16,
+        hotIconSize     = 24,
+        hotFontSize     = 10,
         maxHots         = 4,
 
         -- Position (draggable)
@@ -144,6 +145,7 @@ TGF_Defaults = {
         -- HoT tracking
         showHots        = true,
         hotIconSize     = 14,
+        hotFontSize     = 8,
         maxHots         = 3,
 
         -- Position per raid size (each size can be placed independently)

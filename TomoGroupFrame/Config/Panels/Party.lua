@@ -14,6 +14,19 @@ function TGF_ConfigPanel_Party(parent)
     local db = TomoGroupFrameDB.party
 
     -- =====================================
+    -- QUICK ACTIONS
+    -- =====================================
+    local _, ny = W.CreateButton(c, "Test Mode", 160, y, function()
+        TGF_PartyFrames.ToggleTestMode()
+    end); y = ny
+
+    local _, ny = W.CreateButton(c, "Unlock / Lock", 160, y, function()
+        TGF_PartyFrames.ToggleLock()
+    end); y = ny
+
+    local _, ny = W.CreateSeparator(c, y); y = ny
+
+    -- =====================================
     -- GENERAL
     -- =====================================
     local _, ny = W.CreateSectionHeader(c, L["section_party_general"], y); y = ny
@@ -105,11 +118,6 @@ function TGF_ConfigPanel_Party(parent)
         TGF_PartyFrames.Refresh()
     end); y = ny
 
-    local _, ny = W.CreateCheckbox(c, L["opt_show_hp_percent"], db.showHpPercent, y, function(val)
-        db.showHpPercent = val
-        TGF_PartyFrames.Refresh()
-    end); y = ny
-
     local _, ny = W.CreateSlider(c, L["opt_name_truncate"], 4, 24, 1, db.nameTruncateLen, y, function(val)
         db.nameTruncateLen = val
     end); y = ny
@@ -126,16 +134,6 @@ function TGF_ConfigPanel_Party(parent)
 
     local _, ny = W.CreateSlider(c, L["opt_font_size"] .. " (Name)", 8, 18, 1, db.nameFontSize, y, function(val)
         db.nameFontSize = val
-        TGF_PartyFrames.Refresh()
-    end); y = ny
-
-    local _, ny = W.CreateDropdown(c, L["opt_hp_font"], fontOptions, db.hpFont, y, function(val)
-        db.hpFont = val
-        TGF_PartyFrames.Refresh()
-    end); y = ny
-
-    local _, ny = W.CreateSlider(c, L["opt_font_size"] .. " (HP)", 8, 18, 1, db.hpFontSize, y, function(val)
-        db.hpFontSize = val
         TGF_PartyFrames.Refresh()
     end); y = ny
 
@@ -163,26 +161,18 @@ function TGF_ConfigPanel_Party(parent)
         db.showHots = val
     end); y = ny
 
-    local _, ny = W.CreateSlider(c, L["opt_hot_icon_size"], 10, 24, 1, db.hotIconSize, y, function(val)
+    local _, ny = W.CreateSlider(c, L["opt_hot_icon_size"], 10, 32, 1, db.hotIconSize, y, function(val)
         db.hotIconSize = val
+        TGF_PartyFrames.Refresh()
+    end); y = ny
+
+    local _, ny = W.CreateSlider(c, L["opt_hot_font_size"], 6, 16, 1, db.hotFontSize, y, function(val)
+        db.hotFontSize = val
         TGF_PartyFrames.Refresh()
     end); y = ny
 
     local _, ny = W.CreateSlider(c, L["opt_max_hots"], 1, 8, 1, db.maxHots, y, function(val)
         db.maxHots = val
-    end); y = ny
-
-    -- =====================================
-    -- BUTTONS
-    -- =====================================
-    local _, ny = W.CreateSeparator(c, y); y = ny
-
-    local _, ny = W.CreateButton(c, "Test Mode", 160, y, function()
-        TGF_PartyFrames.ToggleTestMode()
-    end); y = ny
-
-    local _, ny = W.CreateButton(c, "Unlock / Lock", 160, y, function()
-        TGF_PartyFrames.ToggleLock()
     end); y = ny
 
     y = y - 20
