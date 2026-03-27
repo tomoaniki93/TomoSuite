@@ -1,6 +1,6 @@
 # TomoDamageMeter
 
-# ![TomoDamageMeter](https://img.shields.io/badge/TomoDamageMeter-v1.0.4-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120001-orange?style=for-the-badge)
+# ![TomoDamageMeter](https://img.shields.io/badge/TomoDamageMeter-v1.0.6-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120001-orange?style=for-the-badge)
 
 A standalone, lightweight damage meter addon for **World of Warcraft: Midnight** (Retail). It replaces Blizzard's default Damage Meter UI with a dark, customizable, multi-window interface while leveraging the built-in `C_DamageMeter` data API.
 
