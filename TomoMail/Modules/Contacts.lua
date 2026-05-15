@@ -355,8 +355,8 @@ end
 --  Build the flyout panel
 -- ============================================================
 
-local FLYOUT_WIDTH  = 260
-local FLYOUT_HEIGHT = 380
+local FLYOUT_WIDTH  = 360
+local FLYOUT_HEIGHT = 480
 
 local function BuildFlyout()
     flyout = UI:CreatePanel(UIParent, "TomoMailFlyout", FLYOUT_WIDTH, FLYOUT_HEIGHT)

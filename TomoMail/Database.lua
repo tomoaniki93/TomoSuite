@@ -20,6 +20,8 @@ TomoMailDB_Defaults = {
         guildOnlineOnly = false,
         useAutocomplete = true,
         maxRecent       = 10,
+        skinEnabled     = true,
+        mailScale       = 1.0,
 
         -- Couleurs du thème
         color = { r = 0.8, g = 0.267, b = 1.0 },

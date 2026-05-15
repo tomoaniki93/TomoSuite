@@ -105,7 +105,7 @@ end
 -- ============================================================
 
 local PANEL_WIDTH  = 320
-local PANEL_HEIGHT = 370
+local PANEL_HEIGHT = 500
 
 local function BuildPanel()
     local UI = TM.UI
@@ -215,6 +215,79 @@ local function BuildPanel()
             end
         end)
     y = y - 44
+
+    -- ---- Divider ----
+    local div4 = panel:CreateTexture(nil, "ARTWORK")
+    div4:SetSize(PANEL_WIDTH - 2, 1)
+    div4:SetPoint("TOPLEFT", panel, "TOPLEFT", 1, y)
+    div4:SetColorTexture(unpack(UI.COLORS.borderDim))
+    y = y - 12
+
+    -- ---- Section: Appearance ----
+    local secAppear = UI:CreateSectionTitle(panel, TM:L("CFG_SECTION_APPEARANCE") or "APPARENCE")
+    secAppear:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+    y = y - 18
+
+    CreateConfigRow(panel,
+        TM:L("CFG_SKIN_ENABLED"), TM:L("CFG_SKIN_ENABLED_SUB") or nil, y,
+        function() return db.skinEnabled end,
+        function(v)
+            db.skinEnabled = v
+            TM:Print(TM:L("CFG_SKIN_RELOAD") or "Rechargement nécessaire pour appliquer.")
+        end)
+    y = y - 38
+
+    -- Scale slider (0.8 to 1.5, step 0.05)
+    -- Custom slider with decimal display
+    local scaleContainer = CreateFrame("Frame", nil, panel)
+    scaleContainer:SetSize(PANEL_WIDTH - 32, 44)
+    scaleContainer:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+
+    local scaleLbl = scaleContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    scaleLbl:SetPoint("TOPLEFT", scaleContainer, "TOPLEFT", 0, 0)
+    scaleLbl:SetText(TM:L("CFG_MAIL_SCALE") or "Echelle de l'interface")
+    scaleLbl:SetTextColor(0.8, 0.8, 0.8)
+
+    local scaleValText = scaleContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    scaleValText:SetPoint("TOPRIGHT", scaleContainer, "TOPRIGHT", 0, 0)
+    scaleValText:SetTextColor(unpack(UI.COLORS.accent))
+
+    local scaleSliderName = "TomoMailCfgSlider_Scale"
+    local scaleSlider = CreateFrame("Slider", scaleSliderName, scaleContainer, "OptionsSliderTemplate")
+    scaleSlider:SetPoint("TOPLEFT", scaleContainer, "TOPLEFT", 0, -18)
+    scaleSlider:SetWidth(scaleContainer:GetWidth())
+    scaleSlider:SetMinMaxValues(80, 150)
+    scaleSlider:SetValueStep(5)
+    scaleSlider:SetObeyStepOnDrag(true)
+
+    if scaleSlider.Low  then scaleSlider.Low:SetText("")  end
+    if scaleSlider.High then scaleSlider.High:SetText("") end
+
+    pcall(function()
+        local thumb = scaleSlider:GetThumbTexture()
+        if thumb then
+            thumb:SetSize(14, 14)
+            thumb:SetColorTexture(unpack(UI.COLORS.accent))
+        end
+    end)
+
+    function scaleContainer:Refresh()
+        local v = math.floor((db.mailScale or 1.0) * 100 + 0.5)
+        scaleSlider:SetValue(v)
+        scaleValText:SetText(string.format("%d%%", v))
+    end
+
+    scaleSlider:SetScript("OnValueChanged", function(self, val)
+        val = math.floor(val / 5 + 0.5) * 5  -- snap to 5%
+        local scale = val / 100
+        scaleValText:SetText(string.format("%d%%", val))
+        local skinMod = TM.modules["Skin"]
+        if skinMod and skinMod.UpdateScale then
+            skinMod:UpdateScale(scale)
+        end
+    end)
+
+    table.insert(toggles, scaleContainer)
 
     -- ---- Action buttons ----
     local div4 = panel:CreateTexture(nil, "ARTWORK")
