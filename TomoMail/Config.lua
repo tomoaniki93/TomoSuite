@@ -105,7 +105,7 @@ end
 -- ============================================================
 
 local PANEL_WIDTH  = 320
-local PANEL_HEIGHT = 500
+local PANEL_HEIGHT = 470
 
 local function BuildPanel()
     local UI = TM.UI

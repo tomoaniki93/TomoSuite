@@ -19,12 +19,18 @@ local BACKDROP_DARK = {
 }
 
 --- Strip all non-essential textures from a region
-local function StripTextures(frame, keepLayer)
+local function StripTextures(frame, ...)
     if not frame or not frame.GetRegions then return end
+    local keepLayers = {}
+    for i = 1, select("#", ...) do
+        local layer = select(i, ...)
+        if layer then keepLayers[layer] = true end
+    end
+
     for _, region in pairs({ frame:GetRegions() }) do
         if region:IsObjectType("Texture") then
             local layer = region:GetDrawLayer()
-            if layer ~= keepLayer then
+            if not keepLayers[layer] then
                 region:SetTexture(nil)
                 region:SetAtlas("")
                 region:Hide()
@@ -195,7 +201,7 @@ local function SkinInbox()
             -- Skin the item button/icon
             local button = _G["MailItem" .. i .. "Button"]
             if button then
-                StripTextures(button, "OVERLAY")
+                StripTextures(button, "OVERLAY", "ARTWORK")
                 ApplyDarkBackdrop(button,
                     UI.COLORS.bg[1], UI.COLORS.bg[2], UI.COLORS.bg[3], 1)
             end
@@ -262,7 +268,7 @@ local function SkinSendMail()
     for i = 1, ATTACHMENTS_MAX_SEND or 7 do
         local slot = _G["SendMailAttachment" .. i]
         if slot then
-            StripTextures(slot, "OVERLAY")
+            StripTextures(slot, "OVERLAY", "ARTWORK")
             ApplyDarkBackdrop(slot,
                 UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
         end
@@ -356,7 +362,7 @@ local function SkinOpenMail()
     -- Money frame
     pcall(function()
         if OpenMailMoneyButton then
-            StripTextures(OpenMailMoneyButton, "OVERLAY")
+            StripTextures(OpenMailMoneyButton, "OVERLAY", "ARTWORK")
             ApplyDarkBackdrop(OpenMailMoneyButton,
                 UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
         end
@@ -366,7 +372,7 @@ local function SkinOpenMail()
     for i = 1, ATTACHMENTS_MAX_RECEIVE or 16 do
         local slot = _G["OpenMailAttachmentButton" .. i]
         if slot then
-            StripTextures(slot, "OVERLAY")
+            StripTextures(slot, "OVERLAY", "ARTWORK")
             ApplyDarkBackdrop(slot,
                 UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
         end
