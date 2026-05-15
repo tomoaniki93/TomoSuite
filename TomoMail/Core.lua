@@ -2,15 +2,15 @@
 -- Point d'entrée principal de l'addon
 
 local ADDON_NAME = "TomoMail"
-local L          = TomoMailLocale  -- raccourci locale
+local L          = TomoMailLocale
 
 -- ============================================================
 --  Namespace global
 -- ============================================================
 TomoMail = {
-    version = "1.0.0",
-    modules = {},   -- modules enregistrés
-    db      = nil,  -- base de données (initialisée dans OnInitialize)
+    version = "2.0.0",
+    modules = {},
+    db      = nil,
 }
 
 local TM = TomoMail
@@ -19,13 +19,11 @@ local TM = TomoMail
 --  Utilitaires publics
 -- ============================================================
 
---- Enregistre un module (appelé par chaque Modules/*.lua)
 function TM:RegisterModule(name, obj)
     self.modules[name] = obj
     obj.name = name
 end
 
---- Retourne le label de classe coloré
 function TM:ClassColor(class)
     if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
         local c = RAID_CLASS_COLORS[class]
@@ -34,22 +32,26 @@ function TM:ClassColor(class)
     return "|cFFFFFFFF"
 end
 
---- Retourne le raccourci locale (accessible depuis les modules)
+function TM:ClassColorRGB(class)
+    if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+        local c = RAID_CLASS_COLORS[class]
+        return c.r, c.g, c.b
+    end
+    return 1, 1, 1
+end
+
 function TM:L(key)
     return (L and L[key]) or key
 end
 
---- Ajoute une notification dans le chat
 function TM:Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cFFFFCC00TomoMail|r " .. (msg or ""))
+    DEFAULT_CHAT_FRAME:AddMessage("|cFFCC44FFTomoMail|r " .. (msg or ""))
 end
 
---- Insère le nom dans le champ destinataire du courrier
 function TM:SetRecipient(name)
     if SendMailNameEditBox then
         SendMailNameEditBox:SetText(name)
         SendMailNameEditBox:SetFocus()
-        -- Enregistre dans les récents
         self:AddRecent(name)
     end
 end
@@ -72,7 +74,6 @@ local function MergeDefaults(target, defaults)
 end
 
 local function InitDB()
-    -- Initialise la DB globale
     if type(TomoMailDB) ~= "table" then
         TomoMailDB = {}
     end
@@ -81,14 +82,12 @@ local function InitDB()
 
     MergeDefaults(TomoMailDB.global, TomoMailDB_Defaults.global)
 
-    -- Profil par personnage : "Nom-Royaume"
     local profileKey = UnitName("player") .. "-" .. GetRealmName()
     if type(TomoMailDB.profiles[profileKey]) ~= "table" then
         TomoMailDB.profiles[profileKey] = {}
     end
     MergeDefaults(TomoMailDB.profiles[profileKey], TomoMailDB_Defaults.profile)
 
-    -- Raccourcis
     TM.db = {
         global  = TomoMailDB.global,
         profile = TomoMailDB.profiles[profileKey],
@@ -106,16 +105,13 @@ function TM:AddRecent(name)
     local entry   = name .. "|" .. realm .. "|" .. faction
 
     local recent = self.db.profile.recent
-    -- Retire s'il existe déjà
     for i = #recent, 1, -1 do
         local n = strsplit("|", recent[i])
         if n == name then
             table.remove(recent, i)
         end
     end
-    -- Insère en premier
     table.insert(recent, 1, entry)
-    -- Limite
     local max = self.db.profile.maxRecent or 10
     while #recent > max do
         table.remove(recent)
@@ -139,16 +135,14 @@ frame:SetScript("OnEvent", function(self, event, ...)
         local name = ...
         if name == ADDON_NAME then
             InitDB()
-            -- Initialise chaque module
             for _, mod in pairs(TM.modules) do
                 if mod.OnInitialize then mod:OnInitialize() end
             end
-            TM:Print("v" .. TM.version .. " chargé. Tapez |cFFFFCC00/tomomail|r pour les options.")
+            TM:Print("v" .. TM.version .. " chargé. Tapez |cFFCC44FF/tml|r pour les options.")
             frame:UnregisterEvent("ADDON_LOADED")
         end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
-        -- Enregistre ce personnage comme alt
         TM:RegisterCurrentChar()
         for _, mod in pairs(TM.modules) do
             if mod.OnEnteringWorld then mod:OnEnteringWorld() end
@@ -182,7 +176,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 -- ============================================================
---  Enregistrement du personnage courant comme alt
+--  Enregistrement du personnage courant
 -- ============================================================
 
 function TM:RegisterCurrentChar()
@@ -196,14 +190,12 @@ function TM:RegisterCurrentChar()
     local entry = table.concat({ player, realm, faction, level, class }, "|")
     local alts  = self.db.global.alts
 
-    -- Retire l'ancienne entrée de ce personnage
     for i = #alts, 1, -1 do
         local p, r, f = strsplit("|", alts[i])
         if p == player and r == realm and f == faction then
             table.remove(alts, i)
         end
     end
-    -- Insère à jour
     table.insert(alts, entry)
 end
 
@@ -211,8 +203,8 @@ end
 --  Commande slash
 -- ============================================================
 
-SLASH_TOMOMAIL1 = "/tomomail"
-SLASH_TOMOMAIL2 = "/tmail"
+SLASH_TOMOMAIL1 = "/tml"
+SLASH_TOMOMAIL2 = "/tomomail"
 
 SlashCmdList["TOMOMAIL"] = function(msg)
     if TomoMailConfig and TomoMailConfig.Toggle then

@@ -1,20 +1,21 @@
 -- TomoMail | Modules/QuickSend.lua
--- Autocomplétion des noms d'alts et de membres de guilde
+-- Redesigned autocomplete with match highlighting and source tags
 
 local TM = TomoMail
+local UI = TM.UI
 local QuickSend = {}
 TM:RegisterModule("QuickSend", QuickSend)
 
 -- ============================================================
---  Variables locales
+--  Local state
 -- ============================================================
 
-local cachedNames   = nil   -- cache de tous les noms connus
+local cachedNames   = nil
 local lastCacheTime = 0
-local CACHE_TTL     = 5     -- secondes avant de reconstruire le cache
+local CACHE_TTL     = 5
 
 -- ============================================================
---  Construction du cache de noms
+--  Build name cache with source info
 -- ============================================================
 
 local function BuildNameCache()
@@ -26,22 +27,37 @@ local function BuildNameCache()
     -- Alts
     local alts = TM.db.global.alts
     for _, entry in ipairs(alts) do
-        local p, r, f = strsplit("|", entry)
+        local p, r, f, lvl, class = strsplit("|", entry)
         if r == realm and f == faction and p ~= player then
-            cachedNames[p:lower()] = p
+            cachedNames[p:lower()] = { name = p, source = "alt", class = class }
         end
     end
 
-    -- Membres de guilde
+    -- Guild
     if IsInGuild() then
         local numMembers = GetNumGuildMembers()
         for i = 1, numMembers do
-            local name = GetGuildRosterInfo(i)
+            local name, _, _, _, _, _, _, _, _, _, class = GetGuildRosterInfo(i)
             if name then
                 local shortName = strsplit("-", name)
                 if shortName ~= player then
-                    cachedNames[shortName:lower()] = shortName
+                    local key = shortName:lower()
+                    if not cachedNames[key] then
+                        cachedNames[key] = { name = shortName, source = "guild", class = class }
+                    end
                 end
+            end
+        end
+    end
+
+    -- Recents (add only if not already present)
+    local recent = TM.db.profile.recent
+    for _, entry in ipairs(recent) do
+        local rName = strsplit("|", entry)
+        if rName and rName ~= "" then
+            local key = rName:lower()
+            if not cachedNames[key] then
+                cachedNames[key] = { name = rName, source = "recent", class = nil }
             end
         end
     end
@@ -57,104 +73,116 @@ local function GetNameCache()
 end
 
 -- ============================================================
---  Initialisation
+--  Module API
 -- ============================================================
 
-function QuickSend:OnInitialize()
-    -- Rien à faire avant l'ouverture de la boite
-end
+function QuickSend:OnInitialize() end
 
 function QuickSend:OnMailShow()
     if TM.db.profile.useAutocomplete then
         self:EnableAutocomplete()
     end
-    -- Invalide le cache à l'ouverture
     cachedNames = nil
 end
 
 function QuickSend:OnMailHide()
     self:DisableAutocomplete()
+    if self.suggestionFrame then
+        self.suggestionFrame:Hide()
+    end
 end
 
 function QuickSend:EnableAutocomplete()
     if self._hooked then return end
     self._hooked = true
+    self._autocompleteEnabled = true
 
-    -- Hook sur chaque frappe dans le champ destinataire
     SendMailNameEditBox:HookScript("OnTextChanged", function(editbox, userInput)
         if not userInput then return end
         QuickSend:OnRecipientChanged(editbox)
     end)
 
-    -- Suggestion au focus
     SendMailNameEditBox:HookScript("OnEditFocusGained", function(editbox)
         QuickSend:OnRecipientChanged(editbox)
+    end)
+
+    SendMailNameEditBox:HookScript("OnEditFocusLost", function()
+        -- Delay hide so click on suggestion can fire
+        C_Timer.After(0.15, function()
+            if QuickSend.suggestionFrame then
+                QuickSend.suggestionFrame:Hide()
+            end
+        end)
     end)
 end
 
 function QuickSend:DisableAutocomplete()
-    -- Les hooks HookScript ne peuvent pas être retirés facilement;
-    -- on désactive via un flag
     self._autocompleteEnabled = false
 end
 
 -- ============================================================
---  Logique d'autocomplétion
+--  Suggestion frame
 -- ============================================================
 
-local suggestionFrame = nil
-local suggestionButtons = {}
 local MAX_SUGGESTIONS = 8
 
 local function GetOrCreateSuggestionFrame()
-    if suggestionFrame then return suggestionFrame end
+    if QuickSend.suggestionFrame then return QuickSend.suggestionFrame end
 
-    suggestionFrame = CreateFrame("Frame", "TomoMailSuggestions", UIParent, "BackdropTemplate")
-    suggestionFrame:SetBackdrop({
-        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    suggestionFrame:SetBackdropBorderColor(1, 0.8, 0, 0.9)
-    suggestionFrame:SetBackdropColor(0.05, 0.05, 0.1, 0.95)
-    suggestionFrame:SetFrameStrata("TOOLTIP")
-    suggestionFrame:Hide()
+    local sf = CreateFrame("Frame", "TomoMailSuggestions", UIParent, "BackdropTemplate")
+    sf:SetBackdrop(UI.BACKDROP)
+    sf:SetBackdropColor(unpack(UI.COLORS.bg))
+    sf:SetBackdropBorderColor(unpack(UI.COLORS.border))
+    sf:SetFrameStrata("TOOLTIP")
+    sf:EnableMouse(true)
+    sf:Hide()
 
-    -- Ferme au clic en dehors
-    suggestionFrame:EnableMouse(true)
-
+    sf.buttons = {}
     for i = 1, MAX_SUGGESTIONS do
-        local btn = CreateFrame("Button", nil, suggestionFrame)
-        btn:SetHeight(20)
-        btn:SetPoint("TOPLEFT", suggestionFrame, "TOPLEFT", 6, -4 - (i-1)*20)
-        btn:SetPoint("TOPRIGHT", suggestionFrame, "TOPRIGHT", -6, -4 - (i-1)*20)
+        local btn = CreateFrame("Button", nil, sf)
+        btn:SetHeight(22)
 
-        local hl = btn:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints()
-        hl:SetColorTexture(1, 0.8, 0, 0.15)
+        UI:AddRowHighlight(btn)
 
-        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        text:SetPoint("LEFT", btn, "LEFT", 4, 0)
-        text:SetPoint("RIGHT", btn, "RIGHT", -4, 0)
-        text:SetJustifyH("LEFT")
-        btn.text = text
+        -- Name text (will contain colored match)
+        btn.nameText = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        btn.nameText:SetPoint("LEFT", btn, "LEFT", 10, 0)
+        btn.nameText:SetJustifyH("LEFT")
+
+        -- Source tag
+        btn.tag = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        btn.tag:SetPoint("RIGHT", btn, "RIGHT", -10, 0)
 
         btn:SetScript("OnClick", function(self)
-            local name = self.suggestName
+            local name = self._suggestName
             if name then
                 SendMailNameEditBox:SetText(name)
                 SendMailNameEditBox:SetCursorPosition(#name)
-                suggestionFrame:Hide()
+                sf:Hide()
             end
         end)
         btn:Hide()
 
-        suggestionButtons[i] = btn
+        sf.buttons[i] = btn
     end
 
-    return suggestionFrame
+    QuickSend.suggestionFrame = sf
+    return sf
 end
+
+-- ============================================================
+--  Source tag colors
+-- ============================================================
+
+local SOURCE_LABELS = {
+    alt    = { text = "alt",    color = "|cFF9966FF" },
+    guild  = { text = "guilde", color = "|cFF44AAFF" },
+    recent = { text = "récent", color = "|cFFAAAAAA" },
+}
+
+-- ============================================================
+--  Populate suggestions
+-- ============================================================
 
 function QuickSend:OnRecipientChanged(editbox)
     if not TM.db.profile.useAutocomplete then return end
@@ -171,13 +199,13 @@ function QuickSend:OnRecipientChanged(editbox)
     local cache   = GetNameCache()
     local matches = {}
 
-    for k, v in pairs(cache) do
-        if k:sub(1, #lower) == lower and v:lower() ~= lower then
-            table.insert(matches, v)
+    for k, info in pairs(cache) do
+        if k:sub(1, #lower) == lower and k ~= lower then
+            table.insert(matches, info)
             if #matches >= MAX_SUGGESTIONS then break end
         end
     end
-    table.sort(matches)
+    table.sort(matches, function(a, b) return a.name < b.name end)
 
     local sf = GetOrCreateSuggestionFrame()
 
@@ -186,26 +214,47 @@ function QuickSend:OnRecipientChanged(editbox)
         return
     end
 
-    -- Positionne sous le champ
+    -- Position under the editbox
     sf:ClearAllPoints()
-    sf:SetPoint("TOPLEFT", editbox, "BOTTOMLEFT", 0, -2)
-    sf:SetWidth(editbox:GetWidth())
-    sf:SetHeight(#matches * 20 + 8)
+    sf:SetPoint("TOPLEFT", editbox, "BOTTOMLEFT", -2, -2)
+    sf:SetWidth(editbox:GetWidth() + 40)
+    sf:SetHeight(#matches * 22 + 4)
 
-    for i, btn in ipairs(suggestionButtons) do
-        if matches[i] then
-            btn.text:SetText(matches[i])
-            btn.suggestName = matches[i]
+    for i, btn in ipairs(sf.buttons) do
+        local info = matches[i]
+        if info then
+            btn:ClearAllPoints()
+            btn:SetPoint("TOPLEFT", sf, "TOPLEFT", 1, -2 - (i - 1) * 22)
+            btn:SetPoint("TOPRIGHT", sf, "TOPRIGHT", -1, -2 - (i - 1) * 22)
+
+            -- Build highlighted name: matched part in purple, rest in normal
+            local matchLen = #text
+            local matchPart = info.name:sub(1, matchLen)
+            local restPart  = info.name:sub(matchLen + 1)
+
+            local r, g, b = TM:ClassColorRGB(info.class)
+            local classHex = string.format("|cFF%02x%02x%02x", r * 255, g * 255, b * 255)
+
+            btn.nameText:SetText("|cFFCC44FF" .. matchPart .. "|r" .. classHex .. restPart .. "|r")
+
+            -- Source tag
+            local src = SOURCE_LABELS[info.source] or SOURCE_LABELS.recent
+            btn.tag:SetText(src.color .. src.text .. "|r")
+
+            btn._suggestName = info.name
             btn:Show()
         else
-            btn.suggestName = nil
+            btn._suggestName = nil
             btn:Hide()
         end
     end
+
     sf:Show()
 end
 
--- Ferme la suggestion si on appuie sur Entrée ou Escape dans le champ
+-- Close on send
 hooksecurefunc("SendMailFrame_SendMail", function()
-    if suggestionFrame then suggestionFrame:Hide() end
+    if QuickSend.suggestionFrame then
+        QuickSend.suggestionFrame:Hide()
+    end
 end)

@@ -21,7 +21,7 @@ TomoMailDB_Defaults = {
         useAutocomplete = true,
         maxRecent       = 10,
 
-        -- Couleurs du thème (cyan TomoMod)
-        color = { r = 0, g = 0.8, b = 1 },
+        -- Couleurs du thème
+        color = { r = 0.8, g = 0.267, b = 1.0 },
     },
 }
