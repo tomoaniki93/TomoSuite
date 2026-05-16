@@ -137,12 +137,8 @@ local function SkinMailFrame()
         MailFrameTitleText:SetTextColor(unpack(UI.COLORS.accent))
     end
 
-    -- Close button - just restyle the close X
-    if MailFrameCloseButton then
-        pcall(function()
-            StripTextures(MailFrameCloseButton)
-        end)
-    end
+    -- Close button — leave untouched so the X stays visible
+    -- (Blizzard close buttons use Normal/Pushed/Highlight textures)
 
     -- Tab buttons at the bottom
     for i = 1, 2 do
@@ -219,13 +215,8 @@ local function SkinInbox()
         end
     end
 
-    -- Navigation buttons
-    if InboxPrevPageButton then
-        SkinButton(InboxPrevPageButton)
-    end
-    if InboxNextPageButton then
-        SkinButton(InboxNextPageButton)
-    end
+    -- Navigation buttons — keep arrow textures, don't strip
+    -- Just leave them as-is so Préc/Suiv arrows remain visible
 
     -- "Tout ouvrir" (OpenAllMail) button
     if OpenAllMail then
@@ -355,9 +346,7 @@ local function SkinOpenMail()
     SkinButton(OpenMailReportSpamButton)
 
     -- Close button
-    if OpenMailFrameCloseButton then
-        pcall(function() StripTextures(OpenMailFrameCloseButton) end)
-    end
+    -- Close button — leave untouched so the X stays visible
 
     -- Money frame
     pcall(function()
