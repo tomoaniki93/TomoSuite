@@ -6,6 +6,9 @@ TomoMailDB_Defaults = {
     global = {
         -- Table des alts : "Nom|Royaume|Faction|Niveau|Classe"
         alts = {},
+
+        -- Position de la fenêtre TomoMail
+        window = { point = "TOP", x = -160, y = -100 },
     },
 
     -- Données par profil (par personnage)
@@ -21,7 +24,12 @@ TomoMailDB_Defaults = {
         useAutocomplete = true,
         maxRecent       = 10,
         skinEnabled     = true,
+        modernUI        = true,
         mailScale       = 1.0,
+
+        -- Police de l'interface
+        font            = "Fonts\\FRIZQT__.TTF",
+        fontSize        = 1.0,
 
         -- Couleurs du thème
         color = { r = 0.8, g = 0.267, b = 1.0 },

@@ -54,6 +54,31 @@ local defaults = {
     QS_BODY_EMPTY       = "Please enter a message body.",
     QS_SENDING          = "Sending to all alts... (%d/%d)",
     QS_DONE             = "Mail sent to %d character(s)!",
+
+    -- Modern inbox (TomoMail 2.1)
+    INBOX_SYSTEM         = "System",
+    INBOX_EMPTY          = "No mail",
+    INBOX_NO_MATCH       = "No results",
+    INBOX_MESSAGES       = "messages",
+    INBOX_UNREAD         = "unread",
+    INBOX_TAKE           = "Take all",
+    INBOX_TAKE_ALL       = "Take all",
+    INBOX_DELETE         = "Delete",
+    INBOX_REPLY          = "Reply",
+    INBOX_NO_TEXT        = "(No text — mail with attachments)",
+    INBOX_CANT_DELETE    = "Mail not empty — collect its contents first.",
+    INBOX_FILTER_ALL     = "All",
+    INBOX_FILTER_PLAYERS = "Players",
+    INBOX_FILTER_AH      = "Auction House",
+    INBOX_FILTER_SYSTEM  = "System",
+
+    -- Standalone window / settings (TomoMail 2.1)
+    TAB_INBOX            = "Inbox",
+    TAB_SEND             = "Send Mail",
+    SETTINGS             = "Settings",
+    FONT                 = "Font",
+    FONT_SIZE            = "Text size",
+    RESET_POS            = "Recenter window",
 }
 
 for k, v in pairs(defaults) do

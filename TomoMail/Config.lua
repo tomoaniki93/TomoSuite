@@ -105,7 +105,7 @@ end
 -- ============================================================
 
 local PANEL_WIDTH  = 320
-local PANEL_HEIGHT = 470
+local PANEL_HEIGHT = 510
 
 local function BuildPanel()
     local UI = TM.UI
@@ -281,9 +281,13 @@ local function BuildPanel()
         val = math.floor(val / 5 + 0.5) * 5  -- snap to 5%
         local scale = val / 100
         scaleValText:SetText(string.format("%d%%", val))
+        db.mailScale = scale
         local skinMod = TM.modules["Skin"]
         if skinMod and skinMod.UpdateScale then
             skinMod:UpdateScale(scale)
+        end
+        if TM.Window and TM.Window.ApplyScale then
+            TM.Window:ApplyScale()
         end
     end)
 

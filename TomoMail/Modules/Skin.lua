@@ -400,13 +400,22 @@ local function ApplySkin()
 
     skinApplied = true
 
-    -- Wrap each section in pcall for robustness
-    local sections = {
-        { "MailFrame",  SkinMailFrame },
-        { "Inbox",      SkinInbox },
-        { "SendMail",   SkinSendMail },
-        { "OpenMail",   SkinOpenMail },
-    }
+    -- When the modern UI is active, the dedicated Inbox/Compose modules
+    -- own the inbox list and the send frame, so we only skin the outer
+    -- MailFrame chrome and the native OpenMail reader here.
+    local modern = TM.db and TM.db.profile.modernUI ~= false
+
+    -- The standalone TomoMail window fully replaces the Blizzard mail frame
+    -- when the modern UI is active, so Skin only touches the native OpenMail
+    -- reader (used by rare confirmation dialogs). The classic in-place reskin
+    -- still runs when modernUI is disabled.
+    local sections = {}
+    if not modern then
+        table.insert(sections, { "MailFrame", SkinMailFrame })
+        table.insert(sections, { "Inbox",     SkinInbox })
+        table.insert(sections, { "SendMail",  SkinSendMail })
+    end
+    table.insert(sections, { "OpenMail", SkinOpenMail })
 
     for _, sec in ipairs(sections) do
         local ok, err = pcall(sec[2])

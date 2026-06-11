@@ -52,4 +52,29 @@ TomoMailLocale = {
     QS_BODY_EMPTY       = "Veuillez entrer un message.",
     QS_SENDING          = "Envoi aux alts... (%d/%d)",
     QS_DONE             = "Courrier envoyé à %d personnage(s) !",
+
+    -- Modern inbox (TomoMail 2.1)
+    INBOX_SYSTEM         = "Système",
+    INBOX_EMPTY          = "Aucun courrier",
+    INBOX_NO_MATCH       = "Aucun résultat",
+    INBOX_MESSAGES       = "messages",
+    INBOX_UNREAD         = "non lus",
+    INBOX_TAKE           = "Tout prendre",
+    INBOX_TAKE_ALL       = "Tout prendre",
+    INBOX_DELETE         = "Supprimer",
+    INBOX_REPLY          = "Répondre",
+    INBOX_NO_TEXT        = "(Aucun texte — courrier avec pièces jointes)",
+    INBOX_CANT_DELETE    = "Courrier non vide — récupérez son contenu d'abord.",
+    INBOX_FILTER_ALL     = "Tout",
+    INBOX_FILTER_PLAYERS = "Joueurs",
+    INBOX_FILTER_AH      = "Hôtel des ventes",
+    INBOX_FILTER_SYSTEM  = "Système",
+
+    -- Standalone window / settings (TomoMail 2.1)
+    TAB_INBOX            = "Boîte de réception",
+    TAB_SEND             = "Envoyer un objet",
+    SETTINGS             = "Réglages",
+    FONT                 = "Police",
+    FONT_SIZE            = "Taille du texte",
+    RESET_POS            = "Recentrer la fenêtre",
 }

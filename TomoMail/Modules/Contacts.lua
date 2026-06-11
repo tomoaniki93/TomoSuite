@@ -80,6 +80,41 @@ local function GetGuildCache()
 end
 
 -- ============================================================
+--  Resolve a mail sender's class (alts + guild) for coloring.
+--  Returns a class token (e.g. "MONK") or nil.
+-- ============================================================
+
+function Contacts:ResolveClass(name)
+    if not name or name == "" then return nil end
+    local short = strsplit("-", name)        -- strip realm on cross-realm senders
+    local lname = (short or name):lower()
+
+    -- Same-account alts
+    if TM.db and TM.db.global and TM.db.global.alts then
+        for _, entry in ipairs(TM.db.global.alts) do
+            local p, _, _, _, class = strsplit("|", entry)
+            if p and class and p:lower() == lname then
+                return class
+            end
+        end
+    end
+
+    -- Guild roster cache (letter-bucketed)
+    local cache = GetGuildCache()
+    if cache then
+        for _, group in pairs(cache) do
+            for _, m in ipairs(group) do
+                if m.name and m.class and m.name:lower() == lname then
+                    return m.class
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+-- ============================================================
 --  Data getters for each tab
 -- ============================================================
 

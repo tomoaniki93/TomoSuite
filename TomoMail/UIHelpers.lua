@@ -253,3 +253,103 @@ function UI:AddRowHighlight(row)
     hl:SetColorTexture(UI.COLORS.bgHover[1], UI.COLORS.bgHover[2], UI.COLORS.bgHover[3], 0.6)
     return hl
 end
+
+-- ============================================================
+--  Font system — live-updatable font objects
+--  Every Tomo fontstring created via UI:FS(...) is bound to a
+--  shared font object, so changing the chosen font/size updates
+--  the whole UI at once via UI:RefreshFonts().
+-- ============================================================
+
+UI._fontObjects = UI._fontObjects or {}
+local FONT_SIZES = { tiny = 10, small = 11, normal = 12, large = 14, title = 16 }
+local fontsInited = false
+
+function UI:GetFontPath()
+    local f = TM.db and TM.db.profile and TM.db.profile.font
+    if type(f) == "string" and f ~= "" then return f end
+    return "Fonts\\FRIZQT__.TTF"
+end
+
+function UI:GetFontSizeScale()
+    local s = TM.db and TM.db.profile and TM.db.profile.fontSize
+    s = tonumber(s) or 1.0
+    if s < 0.7 then s = 0.7 elseif s > 1.6 then s = 1.6 end
+    return s
+end
+
+local function ensureFontObjects()
+    for key in pairs(FONT_SIZES) do
+        if not UI._fontObjects[key] then
+            UI._fontObjects[key] = CreateFont("TomoMailFont_" .. key)
+        end
+    end
+end
+
+function UI:RefreshFonts()
+    ensureFontObjects()
+    local path  = self:GetFontPath()
+    local scale = self:GetFontSizeScale()
+    for key, baseSize in pairs(FONT_SIZES) do
+        local fo   = self._fontObjects[key]
+        local size = math.floor(baseSize * scale + 0.5)
+        local ok = pcall(function() fo:SetFont(path, size, "") end)
+        if not ok then pcall(function() fo:SetFont("Fonts\\FRIZQT__.TTF", size, "") end) end
+        fo:SetShadowColor(0, 0, 0, 1)
+        fo:SetShadowOffset(1, -1)
+        fo:SetTextColor(unpack(UI.COLORS.text))
+    end
+    fontsInited = true
+end
+
+-- Create a fontstring bound to a live Tomo font object.
+function UI:FS(parent, sizeKey, layer)
+    if not fontsInited then self:RefreshFonts() end
+    local fo = self._fontObjects[sizeKey] or self._fontObjects.normal
+    local fs = parent:CreateFontString(nil, layer or "OVERLAY")
+    fs:SetFontObject(fo)
+    return fs
+end
+
+-- Apply the chosen font directly to an existing (e.g. native) fontstring,
+-- preserving its current size and flags.
+function UI:ApplyFontTo(fs)
+    if not fs or not fs.GetFont then return end
+    local _, size, flags = fs:GetFont()
+    pcall(function() fs:SetFont(self:GetFontPath(), size or 12, flags or "") end)
+end
+
+function UI:GetFontList()
+    local list = {
+        { name = "Friz Quadrata", path = "Fonts\\FRIZQT__.TTF" },
+        { name = "Arial Narrow",  path = "Fonts\\ARIALN.TTF" },
+        { name = "Skurri",        path = "Fonts\\SKURRI.TTF" },
+        { name = "Morpheus",      path = "Fonts\\MORPHEUS.TTF" },
+        { name = "2002",          path = "Fonts\\2002.TTF" },
+    }
+    pcall(function()
+        if LibStub then
+            local LSM = LibStub("LibSharedMedia-3.0", true)
+            if LSM then
+                local seen = {}
+                for _, e in ipairs(list) do seen[e.path] = true end
+                for _, name in ipairs(LSM:List("font")) do
+                    local p = LSM:Fetch("font", name, true)
+                    if p and not seen[p] then
+                        table.insert(list, { name = name, path = p })
+                        seen[p] = true
+                    end
+                end
+            end
+        end
+    end)
+    return list
+end
+
+function UI:GetFontName()
+    local cur = self:GetFontPath()
+    for _, e in ipairs(self:GetFontList()) do
+        if e.path == cur then return e.name end
+    end
+    return cur:match("([^\\]+)%.%w+$") or "Police"
+end
