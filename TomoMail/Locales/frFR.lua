@@ -1,4 +1,6 @@
 -- TomoMail | French Locale
+if GetLocale() ~= "frFR" then return end
+
 TomoMailLocale = {
     ADDON_NAME          = "TomoMail",
     CONTACTS            = "Contacts",

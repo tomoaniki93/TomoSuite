@@ -2,6 +2,12 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.1] - 2026-06-11
+
+### Fixed
+- **Locale fallback was broken — the addon showed French on every client.** `Locales/frFR.lua` set the `TomoMailLocale` table unconditionally, missing the `if GetLocale() ~= "frFR" then return end` guard that every other locale file has. Because `enUS.lua` only fills keys that are still `nil`, the French strings posted by `frFR.lua` were never overridden, so non-French players saw French everywhere. Added the missing guard to `frFR.lua`.
+- **English fallback now loads last.** `Locales/enUS.lua` (the fill-missing default) was loaded before `deDE`/`esES`/`itIT`/`ptBR` in the TOC. Those files reassign the whole `TomoMailLocale` table and do not yet contain the 2.1 keys (`INBOX_*`, `TAB_*`, `SETTINGS`, `FONT`, …), which wiped the English fallback for those keys on German/Spanish/Italian/Portuguese clients. `enUS.lua` is now loaded last so it fills any key a localized table is missing. Net result: French clients get French, every other client gets its own translation with a clean English fallback for untranslated keys.
+
 ## [2.1.0] - 2026-06-10
 
 ### Added
@@ -20,6 +26,9 @@ All notable changes to TomoMail will be documented in this file.
 ### Changed
 - `Modules/Skin.lua`: when `modernUI` is active, `ApplySkin` now only touches the native `OpenMail` reader (used by rare confirmation dialogs); the whole mail frame, inbox and send frame are owned by the standalone window. The classic in-place reskin still runs when `modernUI` is disabled.
 - `TomoMail.toc`: load `Modules/Window.lua`, `Modules/Inbox.lua` and `Modules/Compose.lua` after `Skin.lua`.
+
+### Fixed
+- `Modules/Inbox.lua`: suppressed a recurring Blizzard error surfaced when reading/taking/deleting mail. On the Midnight (12.0) client, changing the "pending mail" state (which `GetInboxText`, `AutoLootMailItem` and `DeleteInboxItem` all do) fires `UPDATE_PENDING_MAIL`, and Blizzard's own minimap mail-reminder handler (`Blizzard_Minimap/Mainline/Minimap.lua:479`) then calls a nil value and throws. This is a Blizzard bug (it also fires from any other mail-pending change, including Blizzard's own UI), not a TomoMail logic error — the stack simply passes through TomoMail because TomoMail initiates the read. A scoped `WithMinimapErrorGuard` now swaps the error handler for the duration of each of TomoMail's mail calls to swallow only this specific `Blizzard_Minimap` error, then restores the previous handler immediately so all other errors are still reported normally.
 
 ### Notes
 - All new mail API access is wrapped in `pcall` with type guards; the modern layer degrades gracefully (and the classic reskin remains available) if a global is unavailable on a given client build.

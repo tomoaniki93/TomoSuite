@@ -299,13 +299,40 @@ end
 --  Action handlers
 -- ============================================================
 
+-- Reading/taking/deleting mail flips the "pending mail" state, which on the
+-- Midnight build triggers a Blizzard bug in the minimap mail-reminder handler
+-- (Blizzard_Minimap/Minimap.lua: "attempt to call a nil value"). We swap the
+-- error handler for the duration of a single mail call to swallow ONLY that
+-- specific Blizzard error, then restore it immediately so every other error
+-- (including our own) is still reported normally.
+local function WithMinimapErrorGuard(fn)
+    local orig = geterrorhandler and geterrorhandler()
+    if orig and seterrorhandler then
+        seterrorhandler(function(msg)
+            if type(msg) == "string" and msg:find("Blizzard_Minimap", 1, true) then return end
+            return orig(msg)
+        end)
+    end
+    pcall(fn)
+    if orig and seterrorhandler then seterrorhandler(orig) end
+end
+
+local function SafeReadBody(index)
+    local body = ""
+    WithMinimapErrorGuard(function()
+        local txt = GetInboxText and GetInboxText(index)
+        if txt and txt ~= "" then body = txt end
+    end)
+    return body
+end
+
 local function RefreshSoon()
     pcall(function() if CheckInbox then CheckInbox() end end)
     C_Timer.After(0.10, function() Inbox:Populate() end)
 end
 
 local function DoTake(index)
-    pcall(function() if AutoLootMailItem then AutoLootMailItem(index) end end)
+    WithMinimapErrorGuard(function() if AutoLootMailItem then AutoLootMailItem(index) end end)
     RefreshSoon()
 end
 
@@ -315,7 +342,7 @@ local function DoDelete(index)
         if InboxItemCanDelete then canDelete = InboxItemCanDelete(index) and true or false end
     end)
     if canDelete then
-        pcall(function() if DeleteInboxItem then DeleteInboxItem(index) end end)
+        WithMinimapErrorGuard(function() if DeleteInboxItem then DeleteInboxItem(index) end end)
     else
         TM:Print("|cFFFF7878" .. (TM:L("INBOX_CANT_DELETE") or "Courrier non vide.") .. "|r")
     end
@@ -338,7 +365,7 @@ local function StartTakeAll()
             end
         end
         if target then
-            pcall(function() if AutoLootMailItem then AutoLootMailItem(target) end end)
+            WithMinimapErrorGuard(function() if AutoLootMailItem then AutoLootMailItem(target) end end)
         else
             if takeTicker then takeTicker:Cancel(); takeTicker = nil end
             RefreshSoon()
@@ -791,11 +818,7 @@ function Inbox:ShowReader(index)
     reader.sender:SetTextColor(r, g, b)
     reader.subject:SetText(subject)
 
-    local body = ""
-    pcall(function()
-        local txt = GetInboxText and GetInboxText(index)
-        if txt and txt ~= "" then body = txt end
-    end)
+    local body = SafeReadBody(index)
     if body == "" then
         body = "|cFF666666" .. (TM:L("INBOX_NO_TEXT") or "(Aucun texte)") .. "|r"
     end
