@@ -154,9 +154,18 @@ end
 --  Row pool
 -- ============================================================
 
+local ICON_MIN, ICON_MAX = 18, 36
+local function GetIconSize()
+    local n = TM.db and TM.db.profile and TM.db.profile.inboxIconSize
+    n = tonumber(n) or 30
+    if n < ICON_MIN then n = ICON_MIN elseif n > ICON_MAX then n = ICON_MAX end
+    return n
+end
+
 local function MakeIconSlot(parent)
     local slot = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    slot:SetSize(18, 18)
+    local sz = GetIconSize()
+    slot:SetSize(sz, sz)
     slot:SetBackdrop(UI.BACKDROP)
     slot:SetBackdropColor(UI.COLORS.bg[1], UI.COLORS.bg[2], UI.COLORS.bg[3], 1)
     slot:SetBackdropBorderColor(unpack(UI.COLORS.border))
@@ -317,6 +326,54 @@ local function WithMinimapErrorGuard(fn)
     if orig and seterrorhandler then seterrorhandler(orig) end
 end
 
+-- The minimap "new mail" indicator. Blizzard's own UPDATE_PENDING_MAIL handler
+-- is broken on Midnight (a nil call inside Blizzard_Minimap): it can throw
+-- before it finishes hiding the icon, leaving it stuck "on" even after the
+-- inbox has been emptied. We drive the indicator ourselves from the
+-- authoritative HasNewMail() instead. The frame path differs across clients,
+-- so probe the known candidates and no-op if none is found.
+local function GetMailIndicator()
+    -- Confirmed on Midnight via /fstack: the reminder frame is
+    -- MinimapCluster.IndicatorFrame.MailFrame, with MiniMapMailIcon as its
+    -- texture. Use the explicit path first, then the texture's parent, then
+    -- legacy names, so we always hold the frame whose visibility IS the icon.
+    local mc = MinimapCluster
+    if mc and mc.IndicatorFrame and mc.IndicatorFrame.MailFrame then
+        return mc.IndicatorFrame.MailFrame
+    end
+    if MiniMapMailIcon and MiniMapMailIcon.GetParent then
+        local p = MiniMapMailIcon:GetParent()
+        if p and p.SetShown then return p end
+    end
+    if mc and mc.MailFrame then return mc.MailFrame end
+    if MiniMapMailFrame then return MiniMapMailFrame end
+    return nil
+end
+
+-- Whether the minimap mail icon should be lit. While the mailbox is open the
+-- inbox item count is authoritative (an empty inbox forces the icon off, which
+-- guards against a stuck "new mail" flag); otherwise fall back to HasNewMail().
+local function ShouldShowMailIcon()
+    local has = false
+    pcall(function() has = (HasNewMail and HasNewMail()) and true or false end)
+    local boxOpen = false
+    pcall(function() boxOpen = (MailFrame and MailFrame.IsShown and MailFrame:IsShown()) and true or false end)
+    if boxOpen then
+        local n
+        pcall(function() n = GetInboxNumItems and GetInboxNumItems() end)
+        if type(n) == "number" and n <= 0 then return false end
+    end
+    return has
+end
+
+local function SyncMinimapMail()
+    pcall(function()
+        local f = GetMailIndicator()
+        if not f or not f.SetShown then return end
+        f:SetShown(ShouldShowMailIcon())
+    end)
+end
+
 local function SafeReadBody(index)
     local body = ""
     WithMinimapErrorGuard(function()
@@ -328,11 +385,18 @@ end
 
 local function RefreshSoon()
     pcall(function() if CheckInbox then CheckInbox() end end)
-    C_Timer.After(0.10, function() Inbox:Populate() end)
+    C_Timer.After(0.10, function() Inbox:Populate(); SyncMinimapMail() end)
 end
 
 local function DoTake(index)
-    WithMinimapErrorGuard(function() if AutoLootMailItem then AutoLootMailItem(index) end end)
+    -- Taking attachments in the native UI opens (reads) the mail, clearing its
+    -- unread flag. We take via AutoLootMailItem without opening, so mark the
+    -- mail read as well — otherwise a mail that keeps a text body stays "unread"
+    -- and the minimap mail icon never goes out (regression vs the native UI).
+    WithMinimapErrorGuard(function()
+        if GetInboxText then GetInboxText(index) end
+        if AutoLootMailItem then AutoLootMailItem(index) end
+    end)
     RefreshSoon()
 end
 
@@ -365,7 +429,10 @@ local function StartTakeAll()
             end
         end
         if target then
-            WithMinimapErrorGuard(function() if AutoLootMailItem then AutoLootMailItem(target) end end)
+            WithMinimapErrorGuard(function()
+                if GetInboxText then GetInboxText(target) end
+                if AutoLootMailItem then AutoLootMailItem(target) end
+            end)
         else
             if takeTicker then takeTicker:Cancel(); takeTicker = nil end
             RefreshSoon()
@@ -431,12 +498,14 @@ function Inbox:Populate()
                 row.money:SetText(""); row.money:Hide()
             end
 
+            local sz = GetIconSize()
             local prevSlot = nil
             for i = 1, 3 do
                 local slot = row.icons[i]
                 local it = entry.items[i]
                 slot:ClearAllPoints()
                 if it then
+                    slot:SetSize(sz, sz)
                     slot.tex:SetTexture(it.texture)
                     if it.count and it.count > 1 then slot.count:SetText(it.count); slot.count:Show()
                     else slot.count:Hide() end
@@ -447,11 +516,19 @@ function Inbox:Populate()
                     else
                         slot:SetBackdropBorderColor(unpack(UI.COLORS.border))
                     end
+                    -- Bottom-aligned so larger icons grow upward into otherwise
+                    -- empty space. With money they sit left of it; without money
+                    -- they are kept left of the expiry column so a tall icon never
+                    -- overlaps the expiry text on the top-right.
                     if not prevSlot then
-                        if row.money:IsShown() then slot:SetPoint("RIGHT", row.money, "LEFT", -5, 0)
-                        else slot:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -10, 5) end
+                        if row.money:IsShown() then
+                            slot:SetPoint("BOTTOMRIGHT", row.money, "BOTTOMLEFT", -6, 0)
+                        else
+                            local ew = (row.expiry:IsShown() and row.expiry:GetStringWidth()) or 0
+                            slot:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -(10 + ew + 8), 5)
+                        end
                     else
-                        slot:SetPoint("RIGHT", prevSlot, "LEFT", -3, 0)
+                        slot:SetPoint("BOTTOMRIGHT", prevSlot, "BOTTOMLEFT", -3, 0)
                     end
                     slot:Show()
                     prevSlot = slot
@@ -461,25 +538,29 @@ function Inbox:Populate()
             end
             row.extra:ClearAllPoints()
             if entry.extra > 0 and prevSlot then
-                row.extra:SetPoint("RIGHT", prevSlot, "LEFT", -3, 0)
+                row.extra:SetPoint("BOTTOMRIGHT", prevSlot, "BOTTOMLEFT", -3, 0)
                 row.extra:SetText("+" .. entry.extra)
                 row.extra:Show()
             else
                 row.extra:Hide()
             end
 
-            -- keep subject from running under the preview cluster
-            local leftmost
-            if row.extra:IsShown() then leftmost = row.extra
-            elseif prevSlot then leftmost = prevSlot
-            elseif row.money:IsShown() then leftmost = row.money end
-            if leftmost then
-                row.subject:SetPoint("RIGHT", leftmost, "LEFT", -6, 0)
+            -- leftmost element of the attachment cluster (extra text or the
+            -- left-most icon), used to keep both text lines clear of it.
+            local cluster = (row.extra:IsShown() and row.extra) or prevSlot
+
+            -- subject (bottom line): clear the cluster, then money.
+            local subjLeft = cluster or (row.money:IsShown() and row.money) or nil
+            if subjLeft then
+                row.subject:SetPoint("RIGHT", subjLeft, "LEFT", -6, 0)
             else
                 row.subject:SetPoint("RIGHT", row, "RIGHT", -10, 0)
             end
-            -- keep sender from running under the expiry label
-            row.sender:SetPoint("RIGHT", row.expiry, "LEFT", -6, 0)
+
+            -- sender (top line): icons can be taller than one text line, so the
+            -- sender must clear the cluster too, otherwise just the expiry label.
+            local sendLeft = cluster or row.expiry
+            row.sender:SetPoint("RIGHT", sendLeft, "LEFT", -6, 0)
 
             local idx = entry.index
             row:SetScript("OnClick", function() Inbox:ShowReader(idx) end)
@@ -845,11 +926,32 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("MAIL_INBOX_UPDATE")
 eventFrame:RegisterEvent("MAIL_SUCCESS")
+eventFrame:RegisterEvent("UPDATE_PENDING_MAIL")
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:SetScript("OnEvent", function()
+    -- Keep the minimap mail indicator in sync on any mail state change, even
+    -- when our window is closed (Blizzard's own handler is broken on Midnight).
+    SyncMinimapMail()
     if panel and panel:IsVisible() then Inbox:Populate() end
 end)
 
 function Inbox:OnInitialize() end
+
+-- Apply a changed icon size to the rows that are currently on screen. Each
+-- slot's texture fills the slot, and the cluster / subject / sender anchors are
+-- all relative to the slots' own edges, so resizing the slots in place makes the
+-- rows reflow automatically — the change is immediate, no /reload required.
+-- Pooled (off-screen) rows pick up the new size the next time they render.
+function Inbox:ApplyIconSize()
+    local sz = GetIconSize()
+    for _, row in ipairs(activeRows) do
+        if row and row.icons then
+            for _, slot in ipairs(row.icons) do
+                if slot and slot.SetSize then slot:SetSize(sz, sz) end
+            end
+        end
+    end
+end
 
 function Inbox:Mount()
     if panel then return end
@@ -875,4 +977,7 @@ end
 function Inbox:OnMailHide()
     if takeTicker then takeTicker:Cancel(); takeTicker = nil end
     if reader then reader:Hide() end
+    -- Re-evaluate the minimap icon once the mailbox has closed, in case the
+    -- inbox was emptied (Blizzard's own handler can leave it stuck on Midnight).
+    if C_Timer and C_Timer.After then C_Timer.After(0.10, SyncMinimapMail) end
 end

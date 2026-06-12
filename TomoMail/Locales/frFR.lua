@@ -15,7 +15,6 @@ TomoMailLocale = {
     ALL_ALTS            = "Envoyer à tous les alts",
     ALL_ALTS_CONFIRM    = "Envoyer ce courrier à tous vos alts ?",
     SEND_TO             = "Envoyer à %s",
-    SETTINGS            = "Options",
     CLOSE               = "Fermer",
 
     -- Config sections
@@ -78,5 +77,6 @@ TomoMailLocale = {
     SETTINGS             = "Réglages",
     FONT                 = "Police",
     FONT_SIZE            = "Taille du texte",
+    INBOX_ICON_SIZE      = "Taille des icônes",
     RESET_POS            = "Recentrer la fenêtre",
 }

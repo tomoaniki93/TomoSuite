@@ -15,7 +15,6 @@ local defaults = {
     ALL_ALTS            = "Send to all alts",
     ALL_ALTS_CONFIRM    = "Send this mail to all your alts?",
     SEND_TO             = "Send to %s",
-    SETTINGS            = "Settings",
     CLOSE               = "Close",
 
     -- Config sections
@@ -78,6 +77,7 @@ local defaults = {
     SETTINGS             = "Settings",
     FONT                 = "Font",
     FONT_SIZE            = "Text size",
+    INBOX_ICON_SIZE      = "Item icon size",
     RESET_POS            = "Recenter window",
 }
 

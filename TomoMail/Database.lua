@@ -31,6 +31,9 @@ TomoMailDB_Defaults = {
         font            = "Fonts\\FRIZQT__.TTF",
         fontSize        = 1.0,
 
+        -- Taille des icônes d'objets dans la boîte de réception (18-36)
+        inboxIconSize   = 30,
+
         -- Couleurs du thème
         color = { r = 0.8, g = 0.267, b = 1.0 },
     },

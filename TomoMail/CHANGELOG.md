@@ -2,6 +2,37 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.5] - 2026-06-12
+
+### Fixed
+- **Item icon size slider now applies live (no /reload needed).** The slider wrote the new size to the profile (so it took effect on the next reload), but the live refresh went through a full inbox rebuild that could be swallowed silently, so dragging the slider appeared to do nothing. `Inbox:ApplyIconSize()` now resizes the on-screen attachment slots in place; because each slot's texture fills it and the cluster/subject/sender anchors are relative to the slots' edges, the rows reflow immediately. Off-screen (pooled) rows still pick up the size the next time they render.
+
+## [2.1.4] - 2026-06-12
+
+### Fixed
+- **Minimap "pending mail" icon staying lit after using the modern inbox (regression vs the native UI).** Root cause: the native mailbox *opens* (reads) a mail when you take its attachments, which clears the mail's unread flag; the modern list took attachments via `AutoLootMailItem` without reading, so any mail that keeps a text body stayed flagged "unread" forever, kept `HasNewMail()` true, and left the minimap mail icon on (confirmed by the icon's tooltip still naming the unread sender). Taking a mail — both the per-row button and "Take all" — now also marks it read (`GetInboxText`), matching the native flow, so the icon clears once everything has been collected. Mails opened from the reader were already marked read.
+- The minimap mail frame is now resolved via the path confirmed on Midnight with `/fstack` (`MinimapCluster.IndicatorFrame.MailFrame`), with `MiniMapMailIcon:GetParent()` and the legacy names kept as fallbacks.
+
+## [2.1.3] - 2026-06-12
+
+### Fixed
+- **Minimap "pending mail" icon staying lit after the inbox is emptied.** On the Midnight client Blizzard's own minimap mail handler (`Blizzard_Minimap/Minimap.lua:479`) errors on `UPDATE_PENDING_MAIL` and never hides the reminder icon, so it could remain shown with an empty inbox. The previous self-sync probed frame names (`MinimapCluster.IndicatorFrame.MailFrame`, `MiniMapMailFrame`) that don't resolve on this build, so it had nothing to hide. The indicator is now resolved authoritatively via `MiniMapMailIcon:GetParent()` (the named global texture confirmed in the frame dump), and its visibility is driven from `HasNewMail()` plus — while the mailbox is open — the actual inbox item count, so an empty inbox forces the icon off even if the new-mail flag is stuck. It is re-evaluated on mail events and shortly after the mailbox closes.
+
+### Changed
+- **Full deDE / esES / itIT / ptBR translations of the 2.1 UI.** The four locales were stuck on the pre-2.1 key set and showed English for the entire modern window (tabs, settings cog, inbox list, filters, config sections, "Item icon size"). All missing keys are now translated using standard WoW terminology (e.g. Inbox → Posteingang / Bandeja de entrada / Posta in arrivo / Caixa de entrada; Auction House → Auktionshaus / Casa de subastas / Casa d'aste / Casa de Leilões). enUS loads last as the unconditional fallback, so any future key still degrades to English.
+- Cleaned up a pre-existing duplicate `SETTINGS` key in `enUS.lua` / `frFR.lua` (and the duplicate that resulted in the four locales), so each locale now defines every key exactly once.
+
+## [2.1.2] - 2026-06-12
+
+### Added
+- **Configurable inbox attachment icon size.** The item icons shown on each inbox row are now resizable independently of the window scale (raising the window scale enlarged everything proportionally, so the icons never looked any bigger relative to the row). A new "Item icon size" slider in the window settings (cog) controls it, ranging from 18 to 36 px; the default is now 30 (previously a fixed 18). Changes apply live without a reload.
+
+### Changed
+- `Modules/Inbox.lua` — icon slots now read their size from `profile.inboxIconSize` (clamped 18-36) instead of a hardcoded 18x18. Slots are bottom-aligned so larger icons grow upward into otherwise-empty row space. When a mail has no money/C.O.D. the icon cluster is kept clear of the expiry column on the right, and both the sender and subject lines are now bounded to the left of the cluster so a taller icon can never overlap the row text. Added `Inbox:ApplyIconSize()` to re-render rows when the setting changes.
+- `Modules/Window.lua` — settings popover grew to fit the new slider, which writes `profile.inboxIconSize` and calls `Inbox:ApplyIconSize()`.
+- `Database.lua` — added `inboxIconSize = 30` default.
+- `Locales/frFR.lua`, `Locales/enUS.lua` — added the `INBOX_ICON_SIZE` string.
+
 ## [2.1.1] - 2026-06-11
 
 ### Fixed

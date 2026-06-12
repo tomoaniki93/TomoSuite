@@ -185,7 +185,7 @@ local function BuildFontList(ddBtn)
 end
 
 local function BuildSettings()
-    settings = UI:CreatePanel(win, "TomoMailSettings", 240, 150)
+    settings = UI:CreatePanel(win, "TomoMailSettings", 240, 205)
     settings:SetFrameStrata("FULLSCREEN_DIALOG")
     settings:SetPoint("TOPRIGHT", win, "TOPRIGHT", -8, -32)
     settings:Hide()
@@ -237,6 +237,26 @@ local function BuildSettings()
     slider:SetScript("OnValueChanged", function(_, val)
         if TM.db and TM.db.profile then TM.db.profile.fontSize = val end
         UI:RefreshFonts()
+    end)
+
+    -- Item icon size slider (inbox attachment icons)
+    local isl = CreateFrame("Slider", "TomoMailIconSizeSlider", settings, "OptionsSliderTemplate")
+    isl:SetPoint("TOPLEFT", 14, -120)
+    isl:SetWidth(210)
+    isl:SetMinMaxValues(18, 36)
+    isl:SetValueStep(2)
+    pcall(function() isl:SetObeyStepOnDrag(true) end)
+    isl:SetValue((TM.db and TM.db.profile and TM.db.profile.inboxIconSize) or 30)
+    if _G["TomoMailIconSizeSliderLow"]  then _G["TomoMailIconSizeSliderLow"]:SetText("-") end
+    if _G["TomoMailIconSizeSliderHigh"] then _G["TomoMailIconSizeSliderHigh"]:SetText("+") end
+    if _G["TomoMailIconSizeSliderText"] then
+        _G["TomoMailIconSizeSliderText"]:SetText(TM:L("INBOX_ICON_SIZE") or "Taille des icônes")
+    end
+    isl:SetScript("OnValueChanged", function(_, val)
+        val = math.floor((val or 30) + 0.5)
+        if TM.db and TM.db.profile then TM.db.profile.inboxIconSize = val end
+        local inbox = TM.modules and TM.modules["Inbox"]
+        if inbox and inbox.ApplyIconSize then inbox:ApplyIconSize() end
     end)
 
     -- Reset position
