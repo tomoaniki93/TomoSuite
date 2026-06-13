@@ -108,6 +108,67 @@ local function AddCoinDot(editbox, r, g, b)
 end
 
 -- ============================================================
+--  Dark body field
+-- ============================================================
+-- The native message body lives in SendMailScrollFrame, whose scrollbar shows
+-- Blizzard's gold up/down arrows that can't be cleanly dark-themed. Rather than
+-- fight them, we drop the scroll frame entirely and present the *same* native
+-- SendMailBodyEditBox as a bare multiline field inside a dark holder (the same
+-- approach a fully-custom compose uses). The edit box is reused as-is, so
+-- SendMail() still reads its text natively; only its container changes.
+
+local bodyHolder
+
+local function EnsureDarkBody()
+    if not SendMailFrame or not SendMailBodyEditBox then return end
+
+    -- Build the dark holder once, over the native scroll frame's footprint.
+    if not bodyHolder then
+        bodyHolder = CreateFrame("Frame", nil, SendMailFrame, "BackdropTemplate")
+        bodyHolder:SetBackdrop(BACKDROP_DARK)
+        bodyHolder:SetBackdropColor(UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
+        bodyHolder:SetBackdropBorderColor(unpack(UI.COLORS.border))
+        if SendMailScrollFrame then
+            bodyHolder:SetPoint("TOPLEFT", SendMailScrollFrame, "TOPLEFT", 0, 0)
+            bodyHolder:SetPoint("BOTTOMRIGHT", SendMailScrollFrame, "BOTTOMRIGHT", 0, 0)
+        end
+        bodyHolder:EnableMouse(true)
+        bodyHolder:SetScript("OnMouseDown", function()
+            if SendMailBodyEditBox then SendMailBodyEditBox:SetFocus() end
+        end)
+    end
+
+    -- Hide the native scroll frame and its gold-arrow scrollbar.
+    if SendMailScrollFrame then
+        local sb = SendMailScrollFrame.ScrollBar or _G["SendMailScrollFrameScrollBar"]
+        if sb and sb.Hide then sb:Hide() end
+        SendMailScrollFrame:Hide()
+    end
+
+    -- Reparent the native body edit box as a bare multiline field.
+    if SendMailBodyEditBox:GetParent() ~= bodyHolder then
+        SendMailBodyEditBox:SetParent(bodyHolder)
+    end
+    SendMailBodyEditBox:ClearAllPoints()
+    SendMailBodyEditBox:SetPoint("TOPLEFT", bodyHolder, "TOPLEFT", 10, -8)
+    SendMailBodyEditBox:SetPoint("BOTTOMRIGHT", bodyHolder, "BOTTOMRIGHT", -10, 8)
+    pcall(function() SendMailBodyEditBox:SetMultiLine(true) end)
+    SendMailBodyEditBox:SetAutoFocus(false)
+    -- SendMailBodyEditBox is a ScrollingEditBox: its OnUpdate / OnCursorChanged /
+    -- OnTextChanged scripts drive the parent SendMailScrollFrame. Detached from
+    -- that scroll frame they call scroll methods the plain holder doesn't have
+    -- and error every frame (the error flood + looping error sound). Clear them;
+    -- the edit box still scrolls its own display to keep the cursor visible.
+    SendMailBodyEditBox:SetScript("OnUpdate", nil)
+    SendMailBodyEditBox:SetScript("OnCursorChanged", nil)
+    SendMailBodyEditBox:SetScript("OnTextChanged", nil)
+    setFO(SendMailBodyEditBox, "normal")
+    SendMailBodyEditBox:SetTextColor(0.85, 0.85, 0.85)
+    SendMailBodyEditBox:EnableMouse(true)
+    SendMailBodyEditBox:Show()
+end
+
+-- ============================================================
 --  Segmented Gold / C.O.D.
 -- ============================================================
 
@@ -179,14 +240,8 @@ local function StyleOnce()
     AddCoinDot(SendMailMoneySilver, 0.75, 0.75, 0.75)
     AddCoinDot(SendMailMoneyCopper, 0.72, 0.43, 0.25)
 
-    if SendMailScrollFrame then
-        StripTextures(SendMailScrollFrame)
-        ApplyDarkBackdrop(SendMailScrollFrame, UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
-    end
-    if SendMailBodyEditBox then
-        setFO(SendMailBodyEditBox, "normal")
-        SendMailBodyEditBox:SetTextColor(0.8, 0.8, 0.8)
-    end
+    -- The message body (native scroll frame + its gold scrollbar) is replaced
+    -- by a bare dark multiline field in EnsureDarkBody(), called from Mount().
 
     for i = 1, (ATTACHMENTS_MAX_SEND or 12) do
         local slot = _G["SendMailAttachment" .. i]
@@ -272,6 +327,7 @@ function Compose:Mount()
 
     pcall(function() SendMailFrame:Show() end)
     pcall(StyleOnce)
+    pcall(EnsureDarkBody)
     pcall(RefreshMoneyType)
 end
 

@@ -8,7 +8,7 @@ local L          = TomoMailLocale
 --  Namespace global
 -- ============================================================
 TomoMail = {
-    version = "2.1.5",
+    version = "2.1.7",
     modules = {},
     db      = nil,
 }

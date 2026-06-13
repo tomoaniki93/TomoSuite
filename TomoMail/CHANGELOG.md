@@ -2,6 +2,16 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.7] - 2026-06-12
+
+### Fixed
+- **Error flood (and looping error sound) when opening the Send tab, introduced in 2.1.6.** `SendMailBodyEditBox` is a ScrollingEditBox whose `OnUpdate` / `OnCursorChanged` / `OnTextChanged` scripts drive its parent `SendMailScrollFrame`. After 2.1.6 reparented the edit box into a plain dark holder, those scripts called scroll methods the holder doesn't have and threw every frame, tripping Blizzard's "too many errors" warning and looping the error sound. Those three scripts are now cleared once the edit box is detached (`Modules/Compose.lua`, `EnsureDarkBody`); the edit box still scrolls its own display to keep the cursor visible, so typing is unaffected. (Trade-off unchanged: the bare body has no mouse-wheel scroll; navigate long text with the arrow keys.)
+
+## [2.1.6] - 2026-06-12
+
+### Changed
+- **Dark message body in the Send tab (no more gold scrollbar arrows).** The native body lived in `SendMailScrollFrame`, whose scrollbar shows Blizzard's gold up/down arrows that can't be cleanly dark-themed. The compose tab now drops that scroll frame and presents the *same* native `SendMailBodyEditBox` as a bare multiline field inside a dark holder (`Modules/Compose.lua`, `EnsureDarkBody`). The edit box is reused as-is, so `SendMail()` still reads its text natively — only its container changes, and there is no scrollbar to theme. Re-asserted on every Send-tab mount.
+
 ## [2.1.5] - 2026-06-12
 
 ### Fixed
