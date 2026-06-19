@@ -818,6 +818,93 @@ end
 --  Reader popup (custom, API-driven body)
 -- ============================================================
 
+local READER_SLOT    = 32
+local READER_PER_ROW = 10
+
+-- Render the current mail's item attachments as individual, clickable slots so
+-- the player can take a single stack (e.g. one of several bulk-bought herb/ore
+-- stacks) instead of only "Take all". Returns how many slots are shown.
+local function PopulateReaderAttachments(index)
+    if not reader or not reader.attachSlots then return 0 end
+    local placed = 0
+    for j = 1, (ATTACHMENTS_MAX_RECEIVE or 16) do
+        local slot = reader.attachSlots[j]
+        if not slot then break end
+        local iok, _, _, texture, count, quality = pcall(GetInboxItem, index, j)
+        if iok and texture then
+            slot.icon:SetTexture(texture)
+            if count and count > 1 then slot.count:SetText(count); slot.count:Show()
+            else slot.count:Hide() end
+            if quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
+                local qc = ITEM_QUALITY_COLORS[quality]
+                slot:SetBackdropBorderColor(qc.r, qc.g, qc.b, 1)
+            else
+                slot:SetBackdropBorderColor(unpack(UI.COLORS.border))
+            end
+            local rr = math.floor(placed / READER_PER_ROW)
+            local cc = placed % READER_PER_ROW
+            slot:ClearAllPoints()
+            slot:SetPoint("TOPLEFT", reader.attachFrame, "TOPLEFT", cc * (READER_SLOT + 6), -rr * (READER_SLOT + 6))
+            slot:Show()
+            placed = placed + 1
+        else
+            slot:Hide()
+        end
+    end
+    local rows = (placed > 0) and (math.floor((placed - 1) / READER_PER_ROW) + 1) or 0
+    reader.attachFrame:SetHeight(rows > 0 and (rows * (READER_SLOT + 6)) or 0.001)
+    return placed
+end
+
+local function MakeReaderSlot(parent, slotNum)
+    local slot = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    slot:SetSize(READER_SLOT, READER_SLOT)
+    slot:SetBackdrop(UI.BACKDROP)
+    slot:SetBackdropColor(UI.COLORS.bg[1], UI.COLORS.bg[2], UI.COLORS.bg[3], 1)
+    slot:SetBackdropBorderColor(unpack(UI.COLORS.border))
+    slot.icon = slot:CreateTexture(nil, "ARTWORK")
+    slot.icon:SetPoint("TOPLEFT", 1, -1)
+    slot.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+    slot.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    slot.count = UI:FS(slot, "tiny")
+    slot.count:SetPoint("BOTTOMRIGHT", -1, 1)
+    slot.attachIndex = slotNum
+
+    slot:SetScript("OnClick", function(self)
+        local idx = reader and reader._index
+        if not idx then return end
+        local before = 0
+        pcall(function() before = (GetInboxNumItems and GetInboxNumItems()) or 0 end)
+        WithMinimapErrorGuard(function()
+            if TakeInboxItem then TakeInboxItem(idx, self.attachIndex) end
+        end)
+        C_Timer.After(0.10, function()
+            if not reader then return end
+            local after = before
+            pcall(function() after = (GetInboxNumItems and GetInboxNumItems()) or 0 end)
+            pcall(function() Inbox:Populate() end)
+            -- If the mail auto-deleted (its last item was taken) the inbox count
+            -- drops and indices shift, so close the reader; otherwise the mail
+            -- still exists at the same index, so just refresh its slots.
+            if after < before then
+                reader:Hide()
+            elseif reader._index then
+                PopulateReaderAttachments(reader._index)
+            end
+        end)
+    end)
+    slot:SetScript("OnEnter", function(self)
+        local idx = reader and reader._index
+        if not idx then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        pcall(function() GameTooltip:SetInboxItem(idx, self.attachIndex) end)
+        GameTooltip:Show()
+    end)
+    slot:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    slot:Hide()
+    return slot
+end
+
 local function BuildReader()
     reader = UI:CreatePanel(UIParent, "TomoMailReader", 430, 360)
     reader:SetPoint("CENTER")
@@ -854,8 +941,17 @@ local function BuildReader()
     div:SetPoint("TOPLEFT", reader, "TOPLEFT", 14, -72)
     div:SetColorTexture(unpack(UI.COLORS.borderDim))
 
+    -- Individual attachment slots (click one to take a single item / stack).
+    reader.attachFrame = CreateFrame("Frame", nil, reader)
+    reader.attachFrame:SetPoint("TOPLEFT", reader, "TOPLEFT", 14, -80)
+    reader.attachFrame:SetSize(402, 0.001)
+    reader.attachSlots = {}
+    for j = 1, (ATTACHMENTS_MAX_RECEIVE or 16) do
+        reader.attachSlots[j] = MakeReaderSlot(reader.attachFrame, j)
+    end
+
     local bodyScroll = CreateFrame("ScrollFrame", "TomoMailReaderScroll", reader, "UIPanelScrollFrameTemplate")
-    bodyScroll:SetPoint("TOPLEFT", reader, "TOPLEFT", 14, -80)
+    bodyScroll:SetPoint("TOPLEFT", reader.attachFrame, "BOTTOMLEFT", 0, -8)
     bodyScroll:SetPoint("BOTTOMRIGHT", reader, "BOTTOMRIGHT", -34, 44)
     local bodyChild = CreateFrame("Frame", nil, bodyScroll)
     bodyChild:SetSize(370, 10)
@@ -905,6 +1001,9 @@ function Inbox:ShowReader(index)
     end
     reader.body:SetText(body)
     reader.bodyChild:SetHeight(math.max(reader.body:GetStringHeight() + 10, 10))
+
+    reader._index = index
+    pcall(function() PopulateReaderAttachments(index) end)
 
     reader.takeBtn:SetScript("OnClick", function() DoTake(index); reader:Hide() end)
     reader.delBtn:SetScript("OnClick", function() DoDelete(index); reader:Hide() end)

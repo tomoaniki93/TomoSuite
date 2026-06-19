@@ -2,6 +2,11 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.8] - 2026-06-12
+
+### Added
+- **Take individual attachments from the reader.** Opening a mail now shows each item attachment as its own clickable slot (with stack count, quality border and item tooltip on hover); clicking one takes just that item/stack via `TakeInboxItem`, instead of being forced to "Take all". This is aimed at bulk auction-house commodity mail (herbs, ores) where several stacks arrive in one mail and you only want some. "Take all" remains available. The reader auto-closes when the mail's last item is taken (it auto-deletes and inbox indices shift); otherwise the slot row refreshes in place. `Modules/Inbox.lua` (`PopulateReaderAttachments`, `MakeReaderSlot`).
+
 ## [2.1.7] - 2026-06-12
 
 ### Fixed

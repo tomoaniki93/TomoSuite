@@ -4,7 +4,7 @@
 ## Notes-frFR: Gestionnaire de courrier avancé — Alts, Guilde, Envoi rapide
 ## Notes-enUS: Advanced mail manager — Alts, Guild, Quick Send
 ## Author: Tomo
-## Version: 2.1.7
+## Version: 2.1.8
 ## SavedVariables: TomoMailDB
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## IconTexture: Interface\Icons\Inv_misc_blizzcon09_poster
