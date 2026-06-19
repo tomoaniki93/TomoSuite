@@ -952,13 +952,33 @@ local function BuildReader()
 
     local bodyScroll = CreateFrame("ScrollFrame", "TomoMailReaderScroll", reader, "UIPanelScrollFrameTemplate")
     bodyScroll:SetPoint("TOPLEFT", reader.attachFrame, "BOTTOMLEFT", 0, -8)
-    bodyScroll:SetPoint("BOTTOMRIGHT", reader, "BOTTOMRIGHT", -34, 44)
+    bodyScroll:SetPoint("BOTTOMRIGHT", reader, "BOTTOMRIGHT", -16, 44)
+    -- Hide the template's gold scrollbar (it showed even with no text and looks
+    -- out of place against the dark theme); the body scrolls with the wheel.
+    do
+        local nm = bodyScroll:GetName()
+        local sb = bodyScroll.ScrollBar or (nm and _G[nm .. "ScrollBar"])
+        if sb then sb:SetAlpha(0); if sb.EnableMouse then sb:EnableMouse(false) end end
+        if nm then
+            for _, s in ipairs({ "ScrollBarScrollUpButton", "ScrollBarScrollDownButton", "ScrollBarThumbTexture" }) do
+                local b = _G[nm .. s]
+                if b then if b.SetAlpha then b:SetAlpha(0) end; if b.EnableMouse then b:EnableMouse(false) end end
+            end
+        end
+        bodyScroll:EnableMouseWheel(true)
+        bodyScroll:SetScript("OnMouseWheel", function(self, delta)
+            local maxS = self:GetVerticalScrollRange() or 0
+            local new = (self:GetVerticalScroll() or 0) - delta * 24
+            if new < 0 then new = 0 elseif new > maxS then new = maxS end
+            self:SetVerticalScroll(new)
+        end)
+    end
     local bodyChild = CreateFrame("Frame", nil, bodyScroll)
-    bodyChild:SetSize(370, 10)
+    bodyChild:SetSize(394, 10)
     bodyScroll:SetScrollChild(bodyChild)
     reader.body = UI:FS(bodyChild, "small")
     reader.body:SetPoint("TOPLEFT", 0, 0)
-    reader.body:SetWidth(366)
+    reader.body:SetWidth(390)
     reader.body:SetJustifyH("LEFT")
     reader.body:SetJustifyV("TOP")
     reader.bodyChild = bodyChild

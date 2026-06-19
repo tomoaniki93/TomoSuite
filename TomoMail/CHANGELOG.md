@@ -2,6 +2,11 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.9] - 2026-06-12
+
+### Fixed
+- **Reader message area no longer shows Blizzard's gold scrollbar.** The reader body used `UIPanelScrollFrameTemplate`, whose gold up/down scrollbar was visible even on mails with no text and clashed with the dark theme. The scrollbar is now hidden and the body scrolls with the mouse wheel instead; the body was also widened to reclaim the freed gutter (`Modules/Inbox.lua`, `BuildReader`).
+
 ## [2.1.8] - 2026-06-12
 
 ### Added
