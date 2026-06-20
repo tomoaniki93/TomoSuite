@@ -1,19 +1,19 @@
 -- TomoSync | Modules/Tooltip.lua
--- Affiche les comptes d'objets par personnage dans les tooltips
+-- Affiche les comptes d'objets par personnage + banque Warband dans les tooltips.
 
 local TS = TomoSync
 local Tooltip = {}
 TS:RegisterModule("Tooltip", Tooltip)
 
 -- ============================================================
---  Cache tooltip (évite de recalculer à chaque survol)
+--  Cache tooltip (evite de recalculer a chaque survol)
 -- ============================================================
 
-local tooltipCache  = {}   -- [itemID] = { lines = {...}, total = N }
-local CACHE_MAX_AGE = 5    -- secondes
+local cache         = {}   -- [itemID] = { time, out = {...}, total = {l,r} }
+local CACHE_MAX_AGE = 5     -- secondes
 
 function Tooltip:ResetCache()
-    wipe(tooltipCache)
+    wipe(cache)
 end
 
 -- ============================================================
@@ -21,7 +21,7 @@ end
 -- ============================================================
 
 local function Fmt(n)
-    if not n or n == 0 then return nil end
+    if not n or n == 0 then return "0" end
     if BreakUpLargeNumbers then
         return tostring(BreakUpLargeNumbers(n))
     end
@@ -29,196 +29,135 @@ local function Fmt(n)
 end
 
 -- ============================================================
---  Construction des lignes tooltip pour un itemID
+--  Collecte des donnees pour un itemID
 -- ============================================================
 
-local function BuildTooltipLines(itemID)
-    local settings  = TS.db.settings
-    local curRealm  = TS.realm
-    local curChar   = TS.charName
-    local db        = TS.db.global
-    local threshold = settings.threshold or 0
+local function CollectLines(itemID)
+    local s         = TS.db.settings
+    local threshold = s.threshold or 0
+    local lines     = {}
+    local grand     = 0
 
-    local lines = {}   -- { charName, class, total, bags, bank, reagent, equip, isCurrent }
-    local grandTotal = 0
+    TS:ForEachChar(function(realm, charName, entry)
+        if s.onlyRealm and realm ~= TS.realm then return end
+        local d = entry.items[itemID]
+        if not d then return end
+        local bags  = (s.showBags  and d.bags)  or 0
+        local bank  = (s.showBank  and d.bank)  or 0
+        local equip = (s.showEquip and d.equip) or 0
+        local total = bags + bank + equip
+        if total > threshold then
+            lines[#lines + 1] = {
+                charName  = charName,
+                realm     = realm,
+                class     = entry.class,
+                bags      = bags,
+                bank      = bank,
+                equip     = equip,
+                total     = total,
+                isCurrent = (charName == TS.charName and realm == TS.realm),
+            }
+            grand = grand + total
+        end
+    end)
 
-    -- Parcourt tous les royaumes / personnages
-    for realm, chars in pairs(db) do
-        if not settings.onlyRealm or realm == curRealm then
-            for charName, entry in pairs(chars) do
-                if type(entry) == "table" and entry.items then
-                    local bags    = (settings.showBags    and entry.items[itemID] and entry.items[itemID].bags)    or 0
-                    local bank    = (settings.showBank    and entry.items[itemID] and entry.items[itemID].bank)    or 0
-                    local reagent = (settings.showReagent and entry.items[itemID] and entry.items[itemID].reagent) or 0
-                    local equip   = (settings.showEquip   and entry.items[itemID] and entry.items[itemID].equip)   or 0
-                    local total   = bags + bank + reagent + equip
+    table.sort(lines, function(a, b)
+        if a.isCurrent ~= b.isCurrent then return a.isCurrent end
+        if a.total ~= b.total then return a.total > b.total end
+        return a.charName < b.charName
+    end)
 
-                    if total > threshold then
-                        table.insert(lines, {
-                            charName  = charName,
-                            realm     = realm,
-                            class     = entry.class,
-                            level     = entry.level or 0,
-                            total     = total,
-                            bags      = bags,
-                            bank      = bank,
-                            reagent   = reagent,
-                            equip     = equip,
-                            isCurrent = (charName == curChar and realm == curRealm),
-                        })
-                        grandTotal = grandTotal + total
-                    end
-                end
+    -- Banque Warband (partagee au compte)
+    local warband = 0
+    if s.showWarband then
+        warband = TS:GetWarbandCount(itemID)
+        grand = grand + warband
+    end
+
+    return lines, warband, grand
+end
+
+-- Construit la liste des lignes affichables (chaines avec couleurs incorporees).
+local function Build(itemID)
+    local lines, warband, grand = CollectLines(itemID)
+    if #lines == 0 and warband == 0 then return nil, nil end
+
+    local s  = TS.db.settings
+    local G  = TS.COLOR_GRAY
+    local P  = TS.COLOR_HEX
+    local CY = TS.COLOR_CYAN
+    local out = {}
+
+    for _, e in ipairs(lines) do
+        if e.isCurrent then
+            -- Personnage courant : detail par emplacement (style BagSync)
+            if s.showBags and e.bags > 0 then
+                out[#out + 1] = { G .. TS:L("BAGS") .. ":|r", P .. Fmt(e.bags) .. "|r" }
             end
+            if s.showBank and e.bank > 0 then
+                out[#out + 1] = { G .. TS:L("BANK") .. ":|r", P .. Fmt(e.bank) .. "|r" }
+            end
+            if s.showEquip and e.equip > 0 then
+                out[#out + 1] = { G .. TS:L("EQUIPPED") .. ":|r", P .. Fmt(e.equip) .. "|r" }
+            end
+        else
+            -- Autres persos : Nom    Total (Sacs: X, Banque: Y)
+            local parts = {}
+            if s.showBags  and e.bags  > 0 then parts[#parts + 1] = TS:L("BAGS")  .. ": " .. Fmt(e.bags)  end
+            if s.showBank  and e.bank  > 0 then parts[#parts + 1] = TS:L("BANK")  .. ": " .. Fmt(e.bank)  end
+            if s.showEquip and e.equip > 0 then parts[#parts + 1] = TS:L("EQUIPPED") .. ": " .. Fmt(e.equip) end
+
+            local left = TS:ClassColor(e.class) .. e.charName .. "|r"
+            if e.realm ~= TS.realm then
+                left = left .. G .. " [" .. e.realm .. "]|r"
+            end
+            local right = P .. Fmt(e.total) .. "|r"
+            if #parts > 0 then
+                right = right .. " " .. G .. "(" .. table.concat(parts, ", ") .. ")|r"
+            end
+            out[#out + 1] = { left, right }
         end
     end
 
-    -- Tri : personnage courant en premier, puis par total décroissant
-    table.sort(lines, function(a, b)
-        if a.isCurrent ~= b.isCurrent then return a.isCurrent end
-        return a.total > b.total
-    end)
-
-    return lines, grandTotal
-end
-
--- ============================================================
---  Formatage d'une ligne tooltip
--- ============================================================
-
--- Construit la partie droite "(Sacs: X · Banque: Y · Réactifs: Z)"
-local function BuildBreakdown(entry, settings)
-    local parts = {}
-    local L = TomoSyncLocale
-
-    if settings.showBags    and entry.bags    and entry.bags    > 0 then
-        table.insert(parts, (L and L.BAGS    or "Bags")    .. ": " .. Fmt(entry.bags))
-    end
-    if settings.showBank    and entry.bank    and entry.bank    > 0 then
-        table.insert(parts, (L and L.BANK    or "Bank")    .. ": " .. Fmt(entry.bank))
-    end
-    if settings.showReagent and entry.reagent and entry.reagent > 0 then
-        table.insert(parts, (L and L.REAGENT or "Reagent") .. ": " .. Fmt(entry.reagent))
-    end
-    if settings.showEquip   and entry.equip   and entry.equip   > 0 then
-        table.insert(parts, (L and L.EQUIPPED or "Equipped") .. ": " .. Fmt(entry.equip))
+    -- Ligne Warband (partagee)
+    if warband > 0 then
+        local left = CY .. TS:L("WARBAND") .. "|r " .. G .. "(" .. TS:L("SHARED") .. ")|r"
+        out[#out + 1] = { left, CY .. Fmt(warband) .. "|r" }
     end
 
-    if #parts == 0 then return "" end
-    return TS.COLOR_GRAY .. "(" .. table.concat(parts, ", ") .. ")|r"
+    -- Ligne Total
+    local total = nil
+    if s.showTotal and grand > 0 then
+        total = { P .. TS:L("TOTAL") .. ":|r", P .. Fmt(grand) .. "|r" }
+    end
+
+    return out, total
 end
 
 -- ============================================================
 --  Ajout des lignes au tooltip
 -- ============================================================
 
-local function AddLinesToTooltip(tooltip, itemID)
+local function AddToTooltip(tt, itemID)
     if not TS.db or not TS.db.settings then return end
 
-    -- Cache
-    local cached = tooltipCache[itemID]
-    if cached and (GetTime() - cached.time) < CACHE_MAX_AGE then
-        -- Réutilise le cache
-        for _, line in ipairs(cached.lines) do
-            tooltip:AddDoubleLine(line.left, line.right, 1, 1, 1, 1, 1, 1)
-        end
-        if cached.totalLine then
-            tooltip:AddDoubleLine(
-                cached.totalLine.left,
-                cached.totalLine.right,
-                0.8, 0.27, 1,   -- pourpre gauche
-                0.8, 0.27, 1    -- pourpre droite
-            )
-        end
-        tooltip:Show()
-        return
+    local c = cache[itemID]
+    if not (c and (GetTime() - c.time) < CACHE_MAX_AGE) then
+        local out, total = Build(itemID)
+        c = { time = GetTime(), out = out, total = total }
+        cache[itemID] = c
     end
 
-    local lines, grandTotal = BuildTooltipLines(itemID)
-    if #lines == 0 then return end
+    if not c.out then return end
 
-    local settings = TS.db.settings
-    local L = TomoSyncLocale
-
-    local cachedLines = {}
-
-    -- Séparateur
-    tooltip:AddLine(" ")
-
-    -- Bloc : personnage courant séparé du reste
-    local shownCurrent = false
-    for _, entry in ipairs(lines) do
-        local classColor = TS:ClassColor(entry.class)
-        local nameStr
-
-        if entry.isCurrent then
-            -- Nom en couleur de classe + "(vous)"
-            nameStr = classColor .. entry.charName .. "|r"
-            shownCurrent = true
-        else
-            nameStr = classColor .. entry.charName .. "|r"
-            -- Indicateur de royaume différent
-            if entry.realm ~= TS.realm then
-                nameStr = nameStr .. TS.COLOR_GRAY .. " [" .. entry.realm .. "]|r"
-            end
-        end
-
-        -- Ligne courante uniquement sacs : affiche directement Bags: X, Bank: Y etc.
-        if entry.isCurrent then
-            -- Affiche chaque sous-catégorie sur sa propre ligne (style BagSync)
-            if settings.showBags and entry.bags and entry.bags > 0 then
-                local left  = TS.COLOR_GRAY .. (L and L.BAGS or "Bags") .. ":|r"
-                local right = TS.COLOR_HEX .. Fmt(entry.bags) .. "|r"
-                tooltip:AddDoubleLine(left, right, 1,1,1, 1,1,1)
-                table.insert(cachedLines, { left = left, right = right })
-            end
-            if settings.showBank and entry.bank and entry.bank > 0 then
-                local left  = TS.COLOR_GRAY .. (L and L.BANK or "Bank") .. ":|r"
-                local right = TS.COLOR_HEX .. Fmt(entry.bank) .. "|r"
-                tooltip:AddDoubleLine(left, right, 1,1,1, 1,1,1)
-                table.insert(cachedLines, { left = left, right = right })
-            end
-            if settings.showReagent and entry.reagent and entry.reagent > 0 then
-                local left  = TS.COLOR_GRAY .. (L and L.REAGENT or "Reagent") .. ":|r"
-                local right = TS.COLOR_HEX .. Fmt(entry.reagent) .. "|r"
-                tooltip:AddDoubleLine(left, right, 1,1,1, 1,1,1)
-                table.insert(cachedLines, { left = left, right = right })
-            end
-            if settings.showEquip and entry.equip and entry.equip > 0 then
-                local left  = TS.COLOR_GRAY .. (L and L.EQUIPPED or "Equipped") .. ":|r"
-                local right = TS.COLOR_HEX .. Fmt(entry.equip) .. "|r"
-                tooltip:AddDoubleLine(left, right, 1,1,1, 1,1,1)
-                table.insert(cachedLines, { left = left, right = right })
-            end
-        else
-            -- Autres alts : NomPerso    Total (Sacs: X, Banque: Y, Réactifs: Z)
-            local breakdown = BuildBreakdown(entry, settings)
-            local totalStr  = TS.COLOR_HEX .. Fmt(entry.total) .. "|r"
-            if breakdown ~= "" then
-                totalStr = totalStr .. " " .. breakdown
-            end
-            tooltip:AddDoubleLine(nameStr, totalStr, 1,1,1, 1,1,1)
-            table.insert(cachedLines, { left = nameStr, right = totalStr })
-        end
+    tt:AddLine(" ")
+    for _, l in ipairs(c.out) do
+        tt:AddDoubleLine(l[1], l[2], 1, 1, 1, 1, 1, 1)
     end
-
-    -- Ligne Total
-    local totalLine = nil
-    if settings.showTotal and grandTotal > 0 then
-        local leftStr  = TS.COLOR_HEX .. (L and L.TOTAL or "Total") .. ":|r"
-        local rightStr = TS.COLOR_HEX .. Fmt(grandTotal) .. "|r"
-        tooltip:AddDoubleLine(leftStr, rightStr, 0.8, 0.27, 1, 0.8, 0.27, 1)
-        totalLine = { left = leftStr, right = rightStr }
+    if c.total then
+        tt:AddDoubleLine(c.total[1], c.total[2], 1, 1, 1, 1, 1, 1)
     end
-
-    tooltip:Show()
-
-    -- Met en cache
-    tooltipCache[itemID] = {
-        time      = GetTime(),
-        lines     = cachedLines,
-        totalLine = totalLine,
-    }
+    tt:Show()
 end
 
 -- ============================================================
@@ -226,52 +165,39 @@ end
 -- ============================================================
 
 function Tooltip:OnInitialize()
-    -- Purge automatique des entrées de cache expirées toutes les 30s.
-    -- Sans cela, les entrées > 5s restent indéfiniment en mémoire jusqu'au
-    -- prochain ResetCache() (scan de sacs ou changement de paramètre).
+    -- Purge des entrees de cache expirees toutes les 30s.
     C_Timer.NewTicker(30, function()
         local now = GetTime()
-        for id, c in pairs(tooltipCache) do
-            if (now - c.time) >= CACHE_MAX_AGE then
-                tooltipCache[id] = nil
+        for id, entry in pairs(cache) do
+            if (now - entry.time) >= CACHE_MAX_AGE then
+                cache[id] = nil
             end
         end
     end)
 
-    -- Hook sur SetItem (survol d'item dans les sacs, inventaire, etc.)
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
-        -- Retail TWW : méthode moderne
+        -- Retail moderne : couvre objets ET liens hypertexte (un seul hook,
+        -- sinon les liens du chat afficheraient les lignes en double).
         TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
             if not TS.db then return end
             local itemID = data and data.id
             if not itemID or itemID == 0 then return end
-            AddLinesToTooltip(tt, itemID)
+            AddToTooltip(tt, itemID)
         end)
     else
-        -- Fallback : hook classique
+        -- Repli : hooks classiques
         hooksecurefunc(GameTooltip, "SetItem", function(tt)
             if not TS.db then return end
             local _, link = tt:GetItem()
             if not link then return end
             local itemID = TS:GetItemID(link)
-            if itemID then
-                AddLinesToTooltip(tt, itemID)
-            end
+            if itemID then AddToTooltip(tt, itemID) end
+        end)
+        hooksecurefunc(GameTooltip, "SetHyperlink", function(tt, link)
+            if not TS.db then return end
+            if not link or link:sub(1, 4) ~= "item" then return end
+            local itemID = TS:GetItemID(link)
+            if itemID then AddToTooltip(tt, itemID) end
         end)
     end
-
-    -- Aussi sur SetHyperlink (liens dans le chat, etc.)
-    hooksecurefunc(GameTooltip, "SetHyperlink", function(tt, link)
-        if not TS.db then return end
-        if not link or link:sub(1, 4) ~= "item" then return end
-        local itemID = TS:GetItemID(link)
-        if itemID then
-            AddLinesToTooltip(tt, itemID)
-        end
-    end)
-
-    -- Réinitialise le cache quand le tooltip est masqué
-    GameTooltip:HookScript("OnHide", function()
-        -- Ne vide pas le cache ici (on veut le garder quelques secondes)
-    end)
 end

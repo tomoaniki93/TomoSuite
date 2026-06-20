@@ -1,69 +1,116 @@
 -- TomoSync | Modules/Scanner.lua
--- Scanne les sacs, la banque et les réactifs du personnage courant
+-- Scanne sacs, banque du personnage et banque Warband (compte) du joueur courant.
+--
+-- NOTE Midnight : la banque de reactifs (ancien index -3) a ete supprimee au
+-- patch 11.x. Les onglets de banque perso sont desormais CharacterBankTab_1..6
+-- et la banque Warband (partagee, account-wide) est enumeree dynamiquement via
+-- C_Bank.FetchPurchasedBankTabIDs au lieu d'une plage codee en dur.
 
 local TS = TomoSync
 local Scanner = {}
 TS:RegisterModule("Scanner", Scanner)
 
 -- ============================================================
---  Constantes BagIndex (retail)
+--  Constantes de conteneurs (resolues via Enum/Constants, avec repli)
 -- ============================================================
 
-local BAG_MIN  = 0   -- Backpack
-local BAG_MAX  = 4   -- Bag 4
-local BANK_MAIN        = -1  -- Enum.BagIndex.Bank
-local BANK_BAG_MIN     = 5
-local BANK_BAG_MAX     = 11
-local REAGENT_BAG      = -3  -- Enum.BagIndex.Reagentbank
+local BAG_BACKPACK = (Enum and Enum.BagIndex and Enum.BagIndex.Backpack) or 0
+local NUM_BAGS     = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots) or 4
+local NUM_RBAG     = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumReagentBagSlots) or 1
+local BAG_LAST     = BAG_BACKPACK + NUM_BAGS + NUM_RBAG          -- 0..5 : sac a dos + 4 sacs + sac a reactifs
+local BANK_MAIN    = (Enum and Enum.BagIndex and Enum.BagIndex.Bank) or -1
 
--- Slots équipement (1-19 = armure + armes, sans les sacs)
-local EQUIP_FIRST = 1
-local EQUIP_LAST  = 19
+local BANK_TYPE_CHARACTER = (Enum and Enum.BankType and Enum.BankType.Character) or 0
+local BANK_TYPE_ACCOUNT   = (Enum and Enum.BankType and Enum.BankType.Account)   or 2
+
+-- Repli si FetchPurchasedBankTabIDs indisponible : plage d'onglets de banque perso.
+local FALLBACK_CHAR_BANK = { 6, 7, 8, 9, 10, 11 }
+
+local EQUIP_FIRST, EQUIP_LAST = 1, 19
 
 -- ============================================================
---  Utilitaire : ajoute count à une clé d'entrée item
+--  Garde "secret value" (Midnight) + wrappers pcall sur les API C_*
 -- ============================================================
 
-local function AddToEntry(itemsTable, itemID, slot, count)
-    if not itemID or itemID == 0 or not count or count == 0 then return end
-    if not itemsTable[itemID] then
-        itemsTable[itemID] = { bags = 0, bank = 0, reagent = 0, equip = 0 }
-    end
-    itemsTable[itemID][slot] = (itemsTable[itemID][slot] or 0) + count
+local function IsSecret(v)
+    return issecretvalue and issecretvalue(v)
 end
 
--- ============================================================
---  Scanne un ensemble de sacs dans un slot donné ("bags", "bank", "reagent")
--- ============================================================
+local function SafeNumSlots(bag)
+    if not (C_Container and C_Container.GetContainerNumSlots) then return 0 end
+    local ok, n = pcall(C_Container.GetContainerNumSlots, bag)
+    if ok and n and not IsSecret(n) then return n end
+    return 0
+end
 
-local function ScanBagRange(itemsTable, bagMin, bagMax, slot)
-    for bagID = bagMin, bagMax do
-        local numSlots = C_Container and C_Container.GetContainerNumSlots(bagID) or 0
-        if numSlots and numSlots > 0 then
-            for s = 1, numSlots do
-                local info = C_Container and C_Container.GetContainerItemInfo(bagID, s)
-                if info and info.itemID and info.stackCount and info.stackCount > 0 then
-                    AddToEntry(itemsTable, info.itemID, slot, info.stackCount)
-                end
+local function SafeItemInfo(bag, slot)
+    if not (C_Container and C_Container.GetContainerItemInfo) then return nil end
+    local ok, info = pcall(C_Container.GetContainerItemInfo, bag, slot)
+    if ok then return info end
+    return nil
+end
+
+local function SafeBankTabs(bankType)
+    if not (C_Bank and C_Bank.FetchPurchasedBankTabIDs) then return nil end
+    local ok, ids = pcall(C_Bank.FetchPurchasedBankTabIDs, bankType)
+    if ok and type(ids) == "table" then return ids end
+    return nil
+end
+
+-- Lit un conteneur et appelle add(itemID, count) pour chaque pile valide.
+-- On n'additionne jamais une valeur secret : sinon Midnight produit une chaine
+-- tainted (crash au formatage) et ne persiste pas la valeur en SavedVariables.
+local function ReadContainer(bag, add)
+    local n = SafeNumSlots(bag)
+    if n <= 0 then return end
+    for slot = 1, n do
+        local info = SafeItemInfo(bag, slot)
+        if info then
+            local id    = info.itemID
+            local count = info.stackCount
+            if id and count and not IsSecret(id) and not IsSecret(count)
+               and id ~= 0 and count > 0 then
+                add(id, count)
             end
         end
     end
 end
 
 -- ============================================================
---  Scanne un seul bag (banque principale ou banque de réactifs)
+--  Helpers d'accumulation (par personnage)
 -- ============================================================
 
-local function ScanSingleBag(itemsTable, bagID, slot)
-    local numSlots = C_Container and C_Container.GetContainerNumSlots(bagID) or 0
-    if numSlots and numSlots > 0 then
-        for s = 1, numSlots do
-            local info = C_Container and C_Container.GetContainerItemInfo(bagID, s)
-            if info and info.itemID and info.stackCount and info.stackCount > 0 then
-                AddToEntry(itemsTable, info.itemID, slot, info.stackCount)
+local function ResetSlot(items, slotKey)
+    for _, data in pairs(items) do
+        if type(data) == "table" then data[slotKey] = 0 end
+    end
+end
+
+local function AddSlot(items, slotKey, id, count)
+    local d = items[id]
+    if not d then
+        d = { bags = 0, bank = 0, equip = 0 }
+        items[id] = d
+    end
+    d[slotKey] = (d[slotKey] or 0) + count
+end
+
+local function Prune(items)
+    for id, data in pairs(items) do
+        if type(data) == "table" then
+            if (data.bags or 0) == 0 and (data.bank or 0) == 0 and (data.equip or 0) == 0 then
+                items[id] = nil
             end
         end
     end
+end
+
+-- Invalide le cache tooltip + rafraichit la fenetre apres un scan.
+function Scanner:AfterScan()
+    local tip = TS.modules["Tooltip"]
+    if tip and tip.ResetCache then tip:ResetCache() end
+    local br = TS.modules["Browser"]
+    if br and br.Refresh then br:Refresh() end
 end
 
 -- ============================================================
@@ -73,72 +120,72 @@ end
 function Scanner:ScanBags()
     if not TS.db or not TS.db.char then return end
     local items = TS.db.char.items
-    -- Remet les comptes sacs à zéro avant de rescanner
-    for id, data in pairs(items) do
-        data.bags = 0
+    ResetSlot(items, "bags")
+    for bag = BAG_BACKPACK, BAG_LAST do
+        ReadContainer(bag, function(id, c) AddSlot(items, "bags", id, c) end)
     end
-    ScanBagRange(items, BAG_MIN, BAG_MAX, "bags")
     TS.db.char.lastScan = time()
-    -- Nettoie les entrées vides
-    for id, data in pairs(items) do
-        if data.bags == 0 and data.bank == 0 and data.reagent == 0 and data.equip == 0 then
-            items[id] = nil
-        end
-    end
-    -- Invalide le cache tooltip
-    local tooltip = TS.modules["Tooltip"]
-    if tooltip then tooltip:ResetCache() end
+    Prune(items)
+    Scanner:AfterScan()
 end
 
 function Scanner:ScanBank()
     if not TS.db or not TS.db.char then return end
     local items = TS.db.char.items
-    for id, data in pairs(items) do
-        data.bank = 0
+    ResetSlot(items, "bank")
+    -- Banque principale heritee (-1) si elle renvoie des slots
+    ReadContainer(BANK_MAIN, function(id, c) AddSlot(items, "bank", id, c) end)
+    -- Onglets de banque perso achetes (API robuste) ou repli
+    local tabs = SafeBankTabs(BANK_TYPE_CHARACTER) or FALLBACK_CHAR_BANK
+    for _, bag in ipairs(tabs) do
+        if bag ~= BANK_MAIN then
+            ReadContainer(bag, function(id, c) AddSlot(items, "bank", id, c) end)
+        end
     end
-    -- Banque principale (slot -1)
-    ScanSingleBag(items, BANK_MAIN, "bank")
-    -- Sacs de banque équipés (5..11)
-    ScanBagRange(items, BANK_BAG_MIN, BANK_BAG_MAX, "bank")
     TS.db.char.lastScan = time()
-    local tooltip = TS.modules["Tooltip"]
-    if tooltip then tooltip:ResetCache() end
+    Prune(items)
+    Scanner:AfterScan()
 end
 
-function Scanner:ScanReagentBank()
-    if not TS.db or not TS.db.char then return end
-    local items = TS.db.char.items
-    for id, data in pairs(items) do
-        data.reagent = 0
+-- Banque Warband : partagee au compte, stockee une seule fois sous _account.
+function Scanner:ScanWarband()
+    if not TS.account or not TS.account.warband then return end
+    local wb = TS.account.warband
+    wipe(wb.items)
+    local tabs = SafeBankTabs(BANK_TYPE_ACCOUNT)
+    if tabs then
+        for _, bag in ipairs(tabs) do
+            ReadContainer(bag, function(id, c)
+                wb.items[id] = (wb.items[id] or 0) + c
+            end)
+        end
     end
-    ScanSingleBag(items, REAGENT_BAG, "reagent")
-    TS.db.char.lastScan = time()
-    local tooltip = TS.modules["Tooltip"]
-    if tooltip then tooltip:ResetCache() end
+    wb.lastScan = time()
+    Scanner:AfterScan()
 end
 
 function Scanner:ScanEquipped()
     if not TS.db or not TS.db.char then return end
     local items = TS.db.char.items
-    for id, data in pairs(items) do
-        data.equip = 0
-    end
+    ResetSlot(items, "equip")
     for slot = EQUIP_FIRST, EQUIP_LAST do
         local link = GetInventoryItemLink("player", slot)
         if link then
-            local itemID = TS:GetItemID(link)
-            local count  = GetInventoryItemCount("player", slot) or 1
-            if itemID then
-                AddToEntry(items, itemID, "equip", count)
+            local id = TS:GetItemID(link)
+            if id then
+                local count = GetInventoryItemCount("player", slot)
+                if IsSecret(count) then count = 1 end
+                count = count or 1
+                if count > 0 then AddSlot(items, "equip", id, count) end
             end
         end
     end
-    local tooltip = TS.modules["Tooltip"]
-    if tooltip then tooltip:ResetCache() end
+    Prune(items)
+    Scanner:AfterScan()
 end
 
 -- ============================================================
---  Événements
+--  Evenements
 -- ============================================================
 
 local scanFrame = CreateFrame("Frame", "TomoSyncScanFrame")
@@ -149,12 +196,9 @@ function Scanner:OnInitialize()
     scanFrame:RegisterEvent("BANKFRAME_CLOSED")
     scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
-    -- Pas d'événement REAGENTBANK_UPDATE en retail TWW
-    -- Le rescan des réactifs est déclenché par BAG_UPDATE ou à l'ouverture de la banque
-
-    scanFrame:SetScript("OnEvent", function(self, event, ...)
+    scanFrame:SetScript("OnEvent", function(self, event)
         if event == "BAG_UPDATE" then
-            -- Throttle : on ne scanne pas à chaque item déplacé
+            -- Throttle : on ne rescanne pas a chaque objet deplace
             if not self._bagTimer then
                 self._bagTimer = C_Timer.NewTimer(0.5, function()
                     self._bagTimer = nil
@@ -164,12 +208,10 @@ function Scanner:OnInitialize()
 
         elseif event == "BANKFRAME_OPENED" then
             Scanner.atBank = true
-            C_Timer.After(0.5, function()
+            -- Laisse le serveur peupler les onglets (banque perso + Warband)
+            C_Timer.After(0.4, function()
                 Scanner:ScanBank()
-                if C_Container and IsReagentBankUnlocked and IsReagentBankUnlocked() then
-                    Scanner:ScanReagentBank()
-                    TS:Print(TS:L("SCAN_REAGENT_DONE"))
-                end
+                Scanner:ScanWarband()
                 TS:Print(TS:L("SCAN_BANK_DONE"))
             end)
 
@@ -183,7 +225,7 @@ function Scanner:OnInitialize()
 end
 
 function Scanner:OnEnteringWorld()
-    -- Scan initial des sacs et équipement au login
+    -- Scan initial des sacs et de l'equipement au login
     C_Timer.After(1.0, function()
         Scanner:ScanBags()
         Scanner:ScanEquipped()

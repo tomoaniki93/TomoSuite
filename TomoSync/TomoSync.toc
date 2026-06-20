@@ -1,25 +1,27 @@
-## Interface: 120005, 120001, 120000
+## Interface: 120007, 120005, 120000
 ## Title: |cFFCC44FFTomo|r|cFFFFFFFFSync|r
-## Notes: Synchronise les objets de vos sacs et banque sur tous vos personnages — affichage dans les tooltips
-## Notes-frFR: Synchronise les objets de vos sacs et banque sur tous vos personnages — affichage dans les tooltips
-## Notes-enUS: Synchronizes items from bags and bank across all your characters — shown in tooltips
+## Notes: Synchronise sacs, banque et banque Warband sur tous vos personnages — tooltips + fenetre de recherche
+## Notes-frFR: Synchronise sacs, banque et banque Warband sur tous vos personnages — tooltips + fenetre de recherche
+## Notes-enUS: Tracks bags, bank and Warband bank across all your characters — tooltips + search window
 ## Author: Tomo
-## Version: 1.0.0
+## Version: 1.1.0
 ## SavedVariables: TomoSyncDB
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## IconTexture: Interface\Icons\Spell_nzinsanity_desynchronized
 
 Locales\frFR.lua
-Locales\enUS.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\itIT.lua
 Locales\ptBR.lua
+Locales\enUS.lua
 
 Database.lua
 Core.lua
 
+Modules\Widgets.lua
 Modules\Scanner.lua
 Modules\Tooltip.lua
+Modules\Browser.lua
 
 Config.lua
