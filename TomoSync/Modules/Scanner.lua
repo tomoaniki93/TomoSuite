@@ -18,13 +18,17 @@ local BAG_BACKPACK = (Enum and Enum.BagIndex and Enum.BagIndex.Backpack) or 0
 local NUM_BAGS     = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots) or 4
 local NUM_RBAG     = (Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumReagentBagSlots) or 1
 local BAG_LAST     = BAG_BACKPACK + NUM_BAGS + NUM_RBAG          -- 0..5 : sac a dos + 4 sacs + sac a reactifs
-local BANK_MAIN    = (Enum and Enum.BagIndex and Enum.BagIndex.Bank) or -1
 
 local BANK_TYPE_CHARACTER = (Enum and Enum.BankType and Enum.BankType.Character) or 0
 local BANK_TYPE_ACCOUNT   = (Enum and Enum.BankType and Enum.BankType.Account)   or 2
 
--- Repli si FetchPurchasedBankTabIDs indisponible : plage d'onglets de banque perso.
-local FALLBACK_CHAR_BANK = { 6, 7, 8, 9, 10, 11 }
+-- Replis si FetchPurchasedBankTabIDs renvoie vide. Index Midnight (12.x) :
+--   banque perso  = CharacterBankTab_1..6 -> 6..11
+--   banque Warband= AccountBankTab_1..5   -> 12..16
+-- NB Midnight : l'index -1 est desormais le TROUSSEAU (plus la banque), donc on
+-- ne le scanne plus ; la banque perso est entierement decoupee en onglets.
+local FALLBACK_CHAR_BANK    = { 6, 7, 8, 9, 10, 11 }
+local FALLBACK_ACCOUNT_BANK = { 12, 13, 14, 15, 16 }
 
 local EQUIP_FIRST, EQUIP_LAST = 1, 19
 
@@ -133,14 +137,12 @@ function Scanner:ScanBank()
     if not TS.db or not TS.db.char then return end
     local items = TS.db.char.items
     ResetSlot(items, "bank")
-    -- Banque principale heritee (-1) si elle renvoie des slots
-    ReadContainer(BANK_MAIN, function(id, c) AddSlot(items, "bank", id, c) end)
-    -- Onglets de banque perso achetes (API robuste) ou repli
-    local tabs = SafeBankTabs(BANK_TYPE_CHARACTER) or FALLBACK_CHAR_BANK
+    -- Banque perso : entierement decoupee en onglets (Midnight). -1 = trousseau,
+    -- on ne le scanne plus. Onglets achetes via l'API, ou repli 6..11.
+    local tabs = SafeBankTabs(BANK_TYPE_CHARACTER)
+    if not tabs or #tabs == 0 then tabs = FALLBACK_CHAR_BANK end
     for _, bag in ipairs(tabs) do
-        if bag ~= BANK_MAIN then
-            ReadContainer(bag, function(id, c) AddSlot(items, "bank", id, c) end)
-        end
+        ReadContainer(bag, function(id, c) AddSlot(items, "bank", id, c) end)
     end
     TS.db.char.lastScan = time()
     Prune(items)
@@ -148,20 +150,26 @@ function Scanner:ScanBank()
 end
 
 -- Banque Warband : partagee au compte, stockee une seule fois sous _account.
+-- Banque Warband : partagee au compte, stockee une seule fois sous _account.
+-- Retourne le nombre d'objets distincts trouves (diagnostic).
 function Scanner:ScanWarband()
-    if not TS.account or not TS.account.warband then return end
+    if not TS.account or not TS.account.warband then return 0 end
     local wb = TS.account.warband
     wipe(wb.items)
+    -- Onglets Warband achetes via l'API ; repli sur la plage fixe Midnight 12..16
     local tabs = SafeBankTabs(BANK_TYPE_ACCOUNT)
-    if tabs then
-        for _, bag in ipairs(tabs) do
-            ReadContainer(bag, function(id, c)
-                wb.items[id] = (wb.items[id] or 0) + c
-            end)
-        end
+    if not tabs or #tabs == 0 then tabs = FALLBACK_ACCOUNT_BANK end
+    for _, bag in ipairs(tabs) do
+        ReadContainer(bag, function(id, c)
+            wb.items[id] = (wb.items[id] or 0) + c
+        end)
     end
     wb.lastScan = time()
+    local n = 0
+    for _ in pairs(wb.items) do n = n + 1 end
+    wb.count = n
     Scanner:AfterScan()
+    return n
 end
 
 function Scanner:ScanEquipped()
@@ -203,17 +211,31 @@ function Scanner:OnInitialize()
                 self._bagTimer = C_Timer.NewTimer(0.5, function()
                     self._bagTimer = nil
                     Scanner:ScanBags()
+                    -- A la banque, BAG_UPDATE se declenche aussi quand un onglet
+                    -- (banque perso ou Warband) finit de se charger : on en profite
+                    -- pour (re)scanner banque + Warband, ce qui capte l'onglet
+                    -- Warband meme s'il se charge apres l'ouverture initiale.
+                    if Scanner.atBank then
+                        Scanner:ScanBank()
+                        Scanner:ScanWarband()
+                    end
                 end)
             end
 
         elseif event == "BANKFRAME_OPENED" then
             Scanner.atBank = true
-            -- Laisse le serveur peupler les onglets (banque perso + Warband)
-            C_Timer.After(0.4, function()
+            -- Laisse le serveur peupler les onglets (banque perso + Warband).
+            -- On scanne a 0.4s puis a 1.2s : les onglets Warband peuvent arriver
+            -- apres l'ouverture initiale de la banque.
+            local function doScan(announce)
                 Scanner:ScanBank()
-                Scanner:ScanWarband()
-                TS:Print(TS:L("SCAN_BANK_DONE"))
-            end)
+                local n = Scanner:ScanWarband()
+                if announce then
+                    TS:Print(TS:L("SCAN_BANK_DONE") .. "  |cFF40D2E0" .. TS:L("WARBAND") .. ": " .. n .. "|r")
+                end
+            end
+            C_Timer.After(0.4, function() doScan(false) end)
+            C_Timer.After(1.2, function() doScan(true) end)
 
         elseif event == "BANKFRAME_CLOSED" then
             Scanner.atBank = false

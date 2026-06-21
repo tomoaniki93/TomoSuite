@@ -177,3 +177,44 @@ function UI.CreateSlider(parent, label, tooltip, minV, maxV, step, getter, sette
     C_Timer.After(0, refresh)   -- init differee
     return container
 end
+
+-- Skinne une barre de defilement FauxScrollFrame en version plate et fine :
+-- gouttiere d'origine masquee, fleches masquees (geometrie conservee), piste
+-- discrete + pouce pourpre plat. Tolerant aux variations de template (gardes).
+function UI.SkinScrollBar(bar)
+    if not bar then return end
+    bar:SetWidth(8)
+    local name  = bar:GetName()
+    local up    = bar.ScrollUpButton   or (name and _G[name .. "ScrollUpButton"])
+    local down  = bar.ScrollDownButton or (name and _G[name .. "ScrollDownButton"])
+    local thumb = (bar.GetThumbTexture and bar:GetThumbTexture()) or (name and _G[name .. "ThumbTexture"])
+
+    -- Masque les textures de gouttiere d'origine (sauf le pouce)
+    for _, region in ipairs({ bar:GetRegions() }) do
+        if region ~= thumb and region.GetObjectType and region:GetObjectType() == "Texture" then
+            region:SetAlpha(0)
+        end
+    end
+
+    -- Masque les fleches (alpha 0 pour conserver la course du pouce)
+    for _, b in ipairs({ up, down }) do
+        if b then b:SetAlpha(0); b:EnableMouse(false) end
+    end
+
+    -- Fond de piste discret
+    if not bar._tsTrack then
+        local track = UI.Solid(bar, "BACKGROUND")
+        track:SetPoint("TOPLEFT", bar, "TOPLEFT", 2, -2)
+        track:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", -2, 2)
+        track:SetVertexColor(1, 1, 1, 0.05)
+        bar._tsTrack = track
+    end
+
+    -- Pouce plat pourpre
+    if thumb then
+        thumb:SetTexture("Interface\\Buttons\\WHITE8X8")
+        local p = UI.PURPLE
+        thumb:SetVertexColor(p[1], p[2], p[3], 0.55)
+        thumb:SetWidth(4)
+    end
+end

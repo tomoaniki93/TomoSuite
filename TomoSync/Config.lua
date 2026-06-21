@@ -32,7 +32,7 @@ StaticPopupDialogs["TOMOSYNC_CLEAR"] = {
 
 local function Build()
     panel = CreateFrame("Frame", "TomoSyncConfigPanel", UIParent, "BackdropTemplate")
-    panel:SetSize(420, 398)
+    panel:SetSize(420, 426)
     panel:SetPoint("CENTER", 80, 0)
     panel:SetFrameStrata("DIALOG")
     panel:SetMovable(true)
@@ -85,9 +85,18 @@ local function Build()
         function(v) TS.db.settings.onlyRealm = v; ApplyChange() end)
     realmCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -208)
 
+    -- Bouton minicarte
+    local mmCb = UI.CreateCheckbox(panel, TS:L("CFG_MINIMAP_BUTTON"), nil,
+        function() return not (TS.account and TS.account.minimap and TS.account.minimap.hide) end,
+        function(v)
+            local mm = TS.modules["Minimap"]
+            if mm then mm:SetHidden(not v) end
+        end)
+    mmCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -236)
+
     -- Separateur
     local sep2 = UI.CreateSeparator(panel, { 1, 1, 1 }, 0.10)
-    sep2:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -242)
+    sep2:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -266)
     sep2:SetPoint("RIGHT", panel, "TOPRIGHT", -20, 0)
 
     -- Curseur seuil
@@ -96,7 +105,7 @@ local function Build()
         function() return TS.db.settings.threshold or 0 end,
         function(v) TS.db.settings.threshold = v end,
         ApplyChange)
-    slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -256)
+    slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -280)
 
     -- ----- Pied de page -----
     local footSep = UI.CreateSeparator(panel, UI.PURPLE, 0.40)

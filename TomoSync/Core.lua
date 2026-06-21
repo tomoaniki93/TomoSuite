@@ -105,6 +105,15 @@ function TS:GetItemQuality(itemID)
     return nil
 end
 
+-- Type/sous-type localise d'un objet (pour les sous-titres) ou nil
+function TS:GetItemTypeText(itemID)
+    if C_Item and C_Item.GetItemInfo then
+        local ok, _, _, _, _, itemType, itemSubType = pcall(C_Item.GetItemInfo, itemID)
+        if ok then return itemSubType or itemType end
+    end
+    return nil
+end
+
 -- Demande le chargement des donnees d'un objet non encore en cache
 function TS:RequestItem(itemID)
     if C_Item and C_Item.RequestLoadItemDataByID then
@@ -168,6 +177,10 @@ local function InitDB()
     local account = TomoSyncDB[TS.ACCOUNT_KEY]
     if type(account.warband) ~= "table" then account.warband = {} end
     if type(account.warband.items) ~= "table" then account.warband.items = {} end
+    -- Bouton minicarte (partage au compte)
+    if type(account.minimap) ~= "table" then account.minimap = {} end
+    if account.minimap.angle == nil then account.minimap.angle = 215 end
+    if account.minimap.hide  == nil then account.minimap.hide  = false end
     TS.account = account
 
     -- Entree du personnage courant

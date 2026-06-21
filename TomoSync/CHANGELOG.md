@@ -3,6 +3,55 @@
 All notable changes to TomoSync are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); this project keeps granular per-file notes.
 
+## [1.1.4] — 2026-06-20
+
+### Added
+
+#### Modules/Minimap.lua *(new)*
+A self-contained minimap button (no LibDBIcon dependency — TomoSync stays library-free). It is draggable around the minimap edge, its position is saved account-wide, and it uses the suite's flat purple look via a circular mask. **Left-click** opens the browser window, **right-click** opens settings; hovering shows a tooltip with those hints.
+
+#### Core.lua
+Added account-wide minimap defaults (`_account.minimap.angle`, `_account.minimap.hide`) in `InitDB`.
+
+#### Config.lua
+Added a **Minimap button** checkbox to show or hide the button.
+
+#### Locales/*.lua
+Added 3 keys to all six locales (`CFG_MINIMAP_BUTTON`, `MM_LEFT`, `MM_RIGHT`), keeping full parity at 37 keys each.
+
+## [1.1.3] — 2026-06-20
+
+### Fixed
+
+#### Modules/Scanner.lua
+The Warband (account) bank was not being captured. Two root causes, both tied to the Midnight bag-index reassignment (confirmed against the API docs):
+- **Timing.** The Warband tabs are scanned 0.4 s after `BANKFRAME_OPENED`, but those tab containers can finish loading *after* the bank opens (e.g. when the player views the Warband tab), so the early scan saw nothing. Fixed by (a) adding a second scan at 1.2 s and (b) re-scanning the bank + Warband on `BAG_UPDATE` while the bank is open — `BAG_UPDATE` fires for the bank/Warband containers as they populate, so the data is now captured whenever it arrives.
+- **Robustness.** `ScanWarband` now falls back to the fixed Midnight account-bank range (bag indices 12–16, `AccountBankTab_1..5`) when `C_Bank.FetchPurchasedBankTabIDs(Enum.BankType.Account)` returns nothing. It also returns the number of distinct items found, surfaced in the bank-open message (e.g. *"Banque scannée. Banque Warband: 23"*) as live confirmation.
+
+Also corrected the **character bank** scan: in Midnight, bag index `-1` is now the **keyring**, not the bank, so reading it was pointless. The character bank is entirely tab-based now (indices 6–11); the obsolete `-1` read was removed and the scan relies on `C_Bank.FetchPurchasedBankTabIDs(Enum.BankType.Character)` with a 6–11 fallback.
+
+## [1.1.2] — 2026-06-20
+
+### Changed
+
+#### Modules/Widgets.lua
+Added `SkinScrollBar` — restyles a FauxScrollFrame scrollbar into a thin, flat modern bar: the original groove textures and the up/down arrow buttons are hidden (the buttons keep their geometry via alpha so the thumb's travel range is preserved), a subtle track background is drawn, and the thumb becomes a slim flat purple bar. Written defensively so template differences degrade gracefully instead of erroring.
+
+#### Modules/Browser.lua
+Applied `SkinScrollBar` to the item-list scrollbar (the default Blizzard scrollbar clashed with the flat-dark window). Added mouse-wheel scrolling to the list — two rows per tick, wired on both the scroll frame and the row buttons — which also covers scrolling now that the arrow buttons are hidden.
+
+## [1.1.1] — 2026-06-20
+
+### Fixed
+
+#### Modules/Browser.lua
+**Critical:** `detail.rows` was never initialised before the detail-row pool was populated, so `Build()` raised *"attempt to perform indexed assignment on field 'rows' (a nil value)"* and aborted **before** creating the rest of the detail panel (`sep2`, the total row, the footer buttons, the `GET_ITEM_INFO_RECEIVED` handler and the `UISpecialFrames` entry). The window therefore showed only the left-hand item list while the right-hand breakdown table stayed blank, and `UpdateDetail()` then threw on the missing `sep2`. Initialised `detail.rows = {}` — `Build()` now completes and the full breakdown table renders.
+
+### Changed
+
+#### Modules/Browser.lua
+Polished the detail panel to match the design mockup: an item-type subtitle under the item name, a class-coloured dot on each character row, the current character's row highlighted with a left accent bar, a "shared" pill on the Warband line, and a left accent bar on the selected item in the list.
+
 ## [1.1.0] — 2026-06-20
 
 ### Added

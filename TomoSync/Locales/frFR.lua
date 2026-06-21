@@ -39,4 +39,7 @@ TomoSyncLocale = {
     BROWSER_HINT    = "Survolez un objet en jeu, ou tapez ci-dessus pour rechercher.",
     ITEMS_TRACKED   = "%d objets suivis",
     DATA_CLEARED    = "Toutes les données ont été supprimées.",
+    CFG_MINIMAP_BUTTON = "Bouton de la minicarte",
+    MM_LEFT         = "Clic gauche : ouvrir la fenêtre",
+    MM_RIGHT        = "Clic droit : paramètres",
 }

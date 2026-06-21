@@ -89,12 +89,13 @@ local function BuildDetail(itemID)
         local total = bags + bank
         if total > 0 then
             out[#out + 1] = {
-                name  = charName,
-                realm = realm,
-                color = TS:ClassColorTriple(entry.class),
-                bags  = bags,
-                bank  = bank,
-                total = total,
+                name      = charName,
+                realm     = realm,
+                color     = TS:ClassColorTriple(entry.class),
+                bags      = bags,
+                bank      = bank,
+                total     = total,
+                isCurrent = (charName == TS.charName and realm == TS.realm),
             }
             grand = grand + total
         end
@@ -127,7 +128,7 @@ function UpdateList()
             row.icon:SetTexture(data.icon)
             row.name:SetText(data.name)
             row.count:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(data.total) or tostring(data.total))
-            if data.id == selectedID then row.sel:Show() else row.sel:Hide() end
+            if data.id == selectedID then row.sel:Show(); row.selBar:Show() else row.sel:Hide(); row.selBar:Hide() end
             row:Show()
         else
             row.id = nil
@@ -148,6 +149,7 @@ function UpdateDetail()
     -- Reset
     detail.icon:Hide()
     detail.name:SetText("")
+    detail.subtitle:SetText("")
     detail.colHeader:Hide()
     detail.sep1:Hide()
     detail.sep2:Hide()
@@ -171,6 +173,8 @@ function UpdateDetail()
         hex = ITEM_QUALITY_COLORS[quality].hex or hex
     end
     detail.name:SetText(hex .. name .. "|r")
+    local typeText = TS:GetItemTypeText(selectedID)
+    detail.subtitle:SetText(typeText or "")
     detail.sep1:Show()
     detail.colHeader:Show()
 
@@ -187,6 +191,8 @@ function UpdateDetail()
         if e.realm ~= TS.realm then label = label .. "  |cFF888888[" .. e.realm .. "]|r" end
         r.name:SetText(label)
         r.name:SetTextColor(e.color[1], e.color[2], e.color[3])
+        r.dot:SetVertexColor(e.color[1], e.color[2], e.color[3], 1)
+        if e.isCurrent then r.hl:Show(); r.bar:Show() else r.hl:Hide(); r.bar:Hide() end
         r.bags:SetText(e.bags > 0 and tostring(e.bags) or "|cFF555555-|r")
         r.bank:SetText(e.bank > 0 and tostring(e.bank) or "|cFF555555-|r")
         r.total:SetText(tostring(e.total))
@@ -334,9 +340,22 @@ local function Build()
         FauxScrollFrame_OnVerticalScroll(self, offset, ROW_H, UpdateList)
     end)
 
+    -- Skin moderne de la barre + molette de souris
+    local scrollbar = scrollFrame.ScrollBar or _G["TomoSyncBrowserScrollScrollBar"]
+    UI.SkinScrollBar(scrollbar)
+
+    local function ScrollByWheel(delta)
+        local sb = scrollFrame.ScrollBar or _G["TomoSyncBrowserScrollScrollBar"]
+        if sb then sb:SetValue(sb:GetValue() - delta * ROW_H * 2) end
+    end
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(_, delta) ScrollByWheel(delta) end)
+
     for i = 1, NUM_ROWS do
         local row = CreateFrame("Button", nil, frame)
         row:SetSize(222, ROW_H)
+        row:EnableMouseWheel(true)
+        row:SetScript("OnMouseWheel", function(_, delta) ScrollByWheel(delta) end)
         if i == 1 then
             row:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 0, 0)
         else
@@ -349,6 +368,14 @@ local function Build()
         sel:SetVertexColor(hl[1], hl[2], hl[3], hl[4])
         sel:Hide()
         row.sel = sel
+
+        local selBar = UI.Solid(row, "ARTWORK")
+        selBar:SetSize(3, ROW_H)
+        selBar:SetPoint("LEFT", row, "LEFT", 0, 0)
+        local pp = UI.PURPLE
+        selBar:SetVertexColor(pp[1], pp[2], pp[3], 1)
+        selBar:Hide()
+        row.selBar = selBar
 
         local hover = UI.Solid(row, "BACKGROUND")
         hover:SetAllPoints()
@@ -396,19 +423,25 @@ local function Build()
     vline:SetVertexColor(0.25, 0.25, 0.30, 1)
 
     -- ----- Detail (droite) -----
+    detail.rows = {}
+
     detail.icon = frame:CreateTexture(nil, "ARTWORK")
-    detail.icon:SetSize(30, 30)
+    detail.icon:SetSize(32, 32)
     detail.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", 264, -56)
     detail.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
     detail.name = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    detail.name:SetPoint("LEFT", detail.icon, "RIGHT", 8, 0)
+    detail.name:SetPoint("TOPLEFT", detail.icon, "TOPRIGHT", 10, -1)
     detail.name:SetPoint("RIGHT", frame, "TOPRIGHT", -18, 0)
     detail.name:SetJustifyH("LEFT")
-    detail.name:SetHeight(30)
+
+    detail.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    detail.subtitle:SetPoint("TOPLEFT", detail.name, "BOTTOMLEFT", 0, -3)
+    detail.subtitle:SetPoint("RIGHT", frame, "TOPRIGHT", -18, 0)
+    detail.subtitle:SetJustifyH("LEFT")
 
     detail.sep1 = UI.CreateSeparator(frame, UI.PURPLE, 0.25)
-    detail.sep1:SetPoint("TOPLEFT", frame, "TOPLEFT", 262, -92)
+    detail.sep1:SetPoint("TOPLEFT", frame, "TOPLEFT", 262, -94)
     detail.sep1:SetPoint("RIGHT", frame, "TOPRIGHT", -18, 0)
 
     -- En-tete de colonnes
@@ -425,9 +458,32 @@ local function Build()
     for i = 1, MAX_DETAIL do
         local r = CreateFrame("Frame", nil, frame)
         r:SetSize(362, ROW_HD)
+
+        local hl = UI.Solid(r, "BACKGROUND")
+        hl:SetAllPoints()
+        local rh = UI.ROW_HL
+        hl:SetVertexColor(rh[1], rh[2], rh[3], 0.10)
+        hl:Hide()
+        r.hl = hl
+
+        local bar = UI.Solid(r, "BACKGROUND")
+        bar:SetSize(3, ROW_HD)
+        bar:SetPoint("LEFT", r, "LEFT", 0, 0)
+        local p = UI.PURPLE
+        bar:SetVertexColor(p[1], p[2], p[3], 1)
+        bar:Hide()
+        r.bar = bar
+
+        local dot = UI.CreateDiamond(r, 7, { 1, 1, 1 })
+        dot:SetPoint("LEFT", r, "LEFT", 12, 0)
+        r.dot = dot
+
         local nm, bags, bank, total = MakeColumnLabels(frame, r, false)
+        nm:ClearAllPoints()
+        nm:SetPoint("LEFT", dot, "RIGHT", 7, 0)
+        nm:SetPoint("RIGHT", bags, "LEFT", -6, 0)
+        nm:SetFontObject("GameFontNormal")
         r.name, r.bags, r.bank, r.total = nm, bags, bank, total
-        r.name:SetFontObject("GameFontNormal")
         r:Hide()
         detail.rows[i] = r
     end
@@ -437,13 +493,23 @@ local function Build()
     detail.warbandRow:SetSize(362, ROW_HD)
     do
         local wr = detail.warbandRow
-        local dot = UI.CreateDiamond(wr, 9, UI.CYAN)
-        dot:SetPoint("LEFT", wr, "LEFT", 10, 0)
-        local lbl = wr:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("LEFT", dot, "RIGHT", 8, 0)
         local cy = UI.CYAN
-        lbl:SetText(TS:L("WARBAND") .. "  |cFF888888(" .. TS:L("SHARED") .. ")|r")
+        local dot = UI.CreateDiamond(wr, 9, UI.CYAN)
+        dot:SetPoint("LEFT", wr, "LEFT", 12, 0)
+        local lbl = wr:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("LEFT", dot, "RIGHT", 7, 0)
+        lbl:SetText(TS:L("WARBAND"))
         lbl:SetTextColor(cy[1], cy[2], cy[3])
+        -- pastille "partagé"
+        local pillTxt = wr:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        pillTxt:SetText(TS:L("SHARED"))
+        pillTxt:SetTextColor(cy[1], cy[2], cy[3])
+        pillTxt:SetPoint("LEFT", lbl, "RIGHT", 10, 0)
+        local pill = UI.Solid(wr, "ARTWORK")
+        pill:SetVertexColor(cy[1], cy[2], cy[3], 0.16)
+        pill:SetPoint("LEFT", pillTxt, "LEFT", -7, 0)
+        pill:SetPoint("RIGHT", pillTxt, "RIGHT", 7, 0)
+        pill:SetHeight(15)
         local val = wr:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         val:SetPoint("RIGHT", wr, "RIGHT", -10, 0)
         val:SetWidth(40)

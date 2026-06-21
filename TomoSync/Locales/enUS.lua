@@ -40,6 +40,9 @@ local defaults = {
     BROWSER_HINT    = "Hover an item in-game, or type above to search.",
     ITEMS_TRACKED   = "%d items tracked",
     DATA_CLEARED    = "All data cleared.",
+    CFG_MINIMAP_BUTTON = "Minimap button",
+    MM_LEFT         = "Left-click: open window",
+    MM_RIGHT        = "Right-click: settings",
 }
 
 TomoSyncLocale = TomoSyncLocale or {}

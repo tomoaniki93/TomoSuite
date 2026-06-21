@@ -39,4 +39,7 @@ TomoSyncLocale = {
     BROWSER_HINT    = "Pasa el ratón sobre un objeto o escribe arriba para buscar.",
     ITEMS_TRACKED   = "%d objetos registrados",
     DATA_CLEARED    = "Todos los datos han sido borrados.",
+    CFG_MINIMAP_BUTTON = "Botón del minimapa",
+    MM_LEFT         = "Clic izquierdo: abrir ventana",
+    MM_RIGHT        = "Clic derecho: ajustes",
 }
