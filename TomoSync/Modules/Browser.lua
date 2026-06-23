@@ -11,23 +11,62 @@ local NUM_ROWS, ROW_H = 14, 24      -- liste de gauche
 local ROW_HD          = 22          -- lignes du detail
 local MAX_DETAIL      = 12          -- persos affiches max dans le detail
 local DEFAULT_ICON    = 134400      -- INV_Misc_QuestionMark
+local GOLD_VISIBLE, GOLD_ROW_H = 9, 26   -- liste d'or
 
 local frame, scrollFrame, evtFrame
 local itemRows  = {}
 local detail    = {}
 local itemList  = {}
+local displayList = {}      -- liste a plat : en-tetes de categorie + objets (accordeon)
+local itemCount = 0
 local searchText = ""
 local selectedID = nil
 
+-- Onglets / vue Or
+local currentView = "items"        -- "items" | "gold"
+local tabItems, tabGold
+local goldPage, goldScroll
+local goldRows = {}
+local goldList = {}
+local goldWB, goldTotal            -- lignes fixes (Warband + Total)
+
 -- Forward declarations
-local UpdateList, UpdateDetail, SelectItem
+local UpdateList, UpdateDetail, SelectItem, UpdateGold, SwitchView, HideItemsView, ToggleCategory
 
 -- ============================================================
---  Agregation des donnees
+--  Categories (accordeon)
+-- ============================================================
+-- classID = Enum.ItemClass : 0 Consommable, 1 Conteneur, 2 Arme, 3 Gemme,
+-- 4 Armure, 5 Reactif, 7 Artisanat, 8 Amelioration, 9 Recette, 12 Quete, ...
+
+local CATEGORIES = {
+    { id = "consumable", key = "CAT_CONSUMABLE", classes = { [0] = true } },
+    { id = "components", key = "CAT_COMPONENTS", classes = { [7] = true, [5] = true, [3] = true, [8] = true } },
+    { id = "equipment",  key = "CAT_EQUIPMENT",  classes = { [2] = true, [4] = true } },
+    { id = "container",  key = "CAT_CONTAINER",  classes = { [1] = true } },
+    { id = "recipe",     key = "CAT_RECIPE",     classes = { [9] = true } },
+    { id = "quest",      key = "CAT_QUEST",      classes = { [12] = true } },
+    { id = "misc",       key = "CAT_MISC",       classes = {} },   -- fourre-tout
+}
+
+local expandState = {}   -- [catId] = false si replie (deplie par defaut)
+
+local function CategoryFor(classID)
+    if classID ~= nil then
+        for _, cat in ipairs(CATEGORIES) do
+            if cat.classes[classID] then return cat.id end
+        end
+    end
+    return "misc"
+end
+
+-- ============================================================
+--  Agregation + liste d'affichage (accordeon par categorie)
 -- ============================================================
 
 local function BuildItemList()
     wipe(itemList)
+    wipe(displayList)
     local s = TS.db and TS.db.settings
     local onlyRealm = s and s.onlyRealm
     local seen = {}   -- itemID -> total
@@ -48,7 +87,12 @@ local function BuildItemList()
         end
     end
 
+    -- Regroupe par categorie
+    local buckets = {}
+    for _, cat in ipairs(CATEGORIES) do buckets[cat.id] = {} end
+
     local q = (searchText or ""):lower()
+    local count = 0
     for id, total in pairs(seen) do
         local name = TS:GetItemName(id)
         if not name then TS:RequestItem(id) end
@@ -58,21 +102,63 @@ local function BuildItemList()
             match = (nm:find(q, 1, true) ~= nil) or (tostring(id):find(q, 1, true) ~= nil)
         end
         if match then
-            itemList[#itemList + 1] = {
-                id    = id,
-                name  = name or ("#" .. id),
-                icon  = TS:GetItemIcon(id) or DEFAULT_ICON,
-                total = total,
-                named = (name ~= nil),
+            local icon, classID = TS:GetItemInstant(id)
+            local catId = CategoryFor(classID)
+            local entry = {
+                id      = id,
+                name    = name or ("#" .. id),
+                icon    = icon or DEFAULT_ICON,
+                quality = TS:GetItemQuality(id),
+                total   = total,
+                named   = (name ~= nil),
             }
+            local b = buckets[catId]
+            b[#b + 1] = entry
+            itemList[#itemList + 1] = entry
+            count = count + 1
         end
     end
+    itemCount = count
 
-    table.sort(itemList, function(a, b)
-        if a.named ~= b.named then return a.named end   -- objets nommes d'abord
-        if a.name ~= b.name then return a.name < b.name end
-        return a.id < b.id
-    end)
+    local function sortBucket(b)
+        table.sort(b, function(a, c)
+            if a.named ~= c.named then return a.named end
+            if a.name ~= c.name then return a.name < c.name end
+            return a.id < c.id
+        end)
+    end
+
+    -- En-tete de categorie, puis ses objets si la categorie est depliee.
+    -- Repliees par defaut (fenetre compacte) ; une recherche deplie tout.
+    local searching = (q ~= "")
+    for _, cat in ipairs(CATEGORIES) do
+        local b = buckets[cat.id]
+        if #b > 0 then
+            sortBucket(b)
+            local expanded = searching or (expandState[cat.id] == true)
+            displayList[#displayList + 1] = {
+                header = true, catId = cat.id, label = TS:L(cat.key),
+                count = #b, expanded = expanded,
+            }
+            if expanded then
+                for _, e in ipairs(b) do displayList[#displayList + 1] = e end
+            end
+        end
+    end
+end
+
+function ToggleCategory(catId)
+    expandState[catId] = not (expandState[catId] == true)
+    BuildItemList()
+    UpdateList()
+end
+
+-- Premier objet (en sautant les en-tetes) de la liste d'affichage
+local function FirstItemId()
+    for _, d in ipairs(displayList) do
+        if not d.header then return d.id end
+    end
+    return nil
 end
 
 local function BuildDetail(itemID)
@@ -116,28 +202,62 @@ end
 -- ============================================================
 
 function UpdateList()
-    local n = #itemList
+    local n = #displayList
     FauxScrollFrame_Update(scrollFrame, n, NUM_ROWS, ROW_H)
     local offset = FauxScrollFrame_GetOffset(scrollFrame)
 
     for i = 1, NUM_ROWS do
         local row  = itemRows[i]
-        local data = itemList[i + offset]
+        local data = displayList[i + offset]
         if data then
-            row.id = data.id
-            row.icon:SetTexture(data.icon)
-            row.name:SetText(data.name)
-            row.count:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(data.total) or tostring(data.total))
-            if data.id == selectedID then row.sel:Show(); row.selBar:Show() else row.sel:Hide(); row.selBar:Hide() end
+            if data.header then
+                -- En-tete de categorie
+                row.rowType = "header"
+                row.catId = data.catId
+                row.id = nil
+                row.headerBg:Show()
+                row.icon:Hide()
+                row.expand:Show()
+                row.expand:SetTexture(data.expanded
+                    and "Interface\\Buttons\\UI-MinusButton-Up"
+                    or  "Interface\\Buttons\\UI-PlusButton-Up")
+                row.sel:Hide(); row.selBar:Hide()
+                row.name:SetText(data.label)
+                local p = UI.PURPLE
+                row.name:SetTextColor(p[1], p[2], p[3])
+                row.count:SetText(tostring(data.count))
+                row.count:SetTextColor(0.55, 0.55, 0.6)
+            else
+                -- Ligne d'objet
+                row.rowType = "item"
+                row.id = data.id
+                row.catId = nil
+                row.headerBg:Hide()
+                row.expand:Hide()
+                row.icon:Show()
+                row.icon:SetTexture(data.icon)
+                row.name:SetText(data.name)
+                local hex
+                if data.quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[data.quality] then
+                    local c = ITEM_QUALITY_COLORS[data.quality]
+                    row.name:SetTextColor(c.r, c.g, c.b)
+                else
+                    row.name:SetTextColor(0.9, 0.9, 0.9)
+                end
+                row.count:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(data.total) or tostring(data.total))
+                row.count:SetTextColor(0.85, 0.85, 0.85)
+                if data.id == selectedID then row.sel:Show(); row.selBar:Show() else row.sel:Hide(); row.selBar:Hide() end
+            end
             row:Show()
         else
+            row.rowType = nil
             row.id = nil
             row:Hide()
         end
     end
 
     if frame.countLabel then
-        frame.countLabel:SetText(string.format(TS:L("ITEMS_TRACKED"), n))
+        frame.countLabel:SetText(string.format(TS:L("ITEMS_TRACKED"), itemCount))
     end
 end
 
@@ -233,18 +353,134 @@ function SelectItem(id)
 end
 
 -- ============================================================
+--  Vue Or : "qui a combien de PO" + coffre Warband
+-- ============================================================
+
+local function CoinText(copper)
+    if GetCoinTextureString then return GetCoinTextureString(copper or 0) end
+    return tostring(math.floor((copper or 0) / 10000)) .. "g"
+end
+
+local function BuildGold()
+    wipe(goldList)
+    local s = TS.db and TS.db.settings
+    local onlyRealm = s and s.onlyRealm
+    local grand = 0
+    TS:ForEachChar(function(realm, charName, entry)
+        if onlyRealm and realm ~= TS.realm then return end
+        local m = entry.money or 0
+        goldList[#goldList + 1] = {
+            name = charName, realm = realm,
+            color = TS:ClassColorTriple(entry.class),
+            money = m,
+            isCurrent = (charName == TS.charName and realm == TS.realm),
+        }
+        grand = grand + m
+    end)
+    table.sort(goldList, function(a, b)
+        if a.money ~= b.money then return a.money > b.money end
+        return a.name < b.name
+    end)
+    local wb = (TS.account and TS.account.warband and TS.account.warband.money) or 0
+    return wb, grand + wb
+end
+
+function UpdateGold()
+    local wb, grand = BuildGold()
+
+    local n = #goldList
+    FauxScrollFrame_Update(goldScroll, n, GOLD_VISIBLE, GOLD_ROW_H)
+    local offset = FauxScrollFrame_GetOffset(goldScroll)
+    for i = 1, GOLD_VISIBLE do
+        local row = goldRows[i]
+        local d = goldList[i + offset]
+        if d then
+            local label = d.name
+            if d.realm ~= TS.realm then label = label .. "  |cFF888888[" .. d.realm .. "]|r" end
+            row.name:SetText(label)
+            row.name:SetTextColor(d.color[1], d.color[2], d.color[3])
+            row.dot:SetVertexColor(d.color[1], d.color[2], d.color[3], 1)
+            row.value:SetText(CoinText(d.money))
+            if d.isCurrent then row.hl:Show(); row.bar:Show() else row.hl:Hide(); row.bar:Hide() end
+            row:Show()
+        else
+            row:Hide()
+        end
+    end
+
+    -- Ligne Warband (partagee)
+    goldWB.value:SetText(CoinText(wb))
+    -- Ligne Total
+    goldTotal.value:SetText(CoinText(grand))
+end
+
+-- ============================================================
+--  Bascule de vue (onglets)
+-- ============================================================
+
+function HideItemsView()
+    if frame.search then frame.search:Hide() end
+    if scrollFrame then scrollFrame:Hide() end
+    local sb = _G["TomoSyncBrowserScrollScrollBar"]; if sb then sb:Hide() end
+    if frame.vline then frame.vline:Hide() end
+    for _, r in ipairs(itemRows) do r:Hide() end
+    detail.icon:Hide(); detail.name:SetText(""); detail.subtitle:SetText("")
+    detail.colHeader:Hide(); detail.sep1:Hide(); detail.sep2:Hide()
+    for _, r in ipairs(detail.rows) do r:Hide() end
+    detail.warbandRow:Hide(); detail.totalRow:Hide(); detail.hint:Hide()
+    if frame.countLabel then frame.countLabel:Hide() end
+end
+
+local function SetTabVisual(tab, active)
+    tab.active = active
+    if active then
+        local p = UI.PURPLE
+        tab.Text:SetTextColor(1, 1, 1)
+        tab.underline:Show()
+    else
+        tab.Text:SetTextColor(0.6, 0.6, 0.65)
+        tab.underline:Hide()
+    end
+end
+
+function SwitchView(view)
+    currentView = view
+    SetTabVisual(tabItems, view == "items")
+    SetTabVisual(tabGold,  view == "gold")
+    if view == "gold" then
+        HideItemsView()
+        goldPage:Show()
+        UpdateGold()
+    else
+        goldPage:Hide()
+        if frame.search then frame.search:Show() end
+        if scrollFrame then scrollFrame:Show() end
+        if frame.vline then frame.vline:Show() end
+        if frame.countLabel then frame.countLabel:Show() end
+        BuildItemList()
+        if not selectedID then selectedID = FirstItemId() end
+        UpdateList()
+        UpdateDetail()
+    end
+end
+
+-- ============================================================
 --  Rafraichissement public (apres un scan)
 -- ============================================================
 
 function Browser:Refresh()
     if not frame or not frame:IsShown() then return end
+    if currentView == "gold" then
+        UpdateGold()
+        return
+    end
     BuildItemList()
     local stillThere = false
     for _, d in ipairs(itemList) do
         if d.id == selectedID then stillThere = true break end
     end
     if not stillThere then
-        selectedID = itemList[1] and itemList[1].id or nil
+        selectedID = FirstItemId()
     end
     UpdateList()
     UpdateDetail()
@@ -273,7 +509,7 @@ end
 
 local function Build()
     frame = CreateFrame("Frame", "TomoSyncBrowser", UIParent, "BackdropTemplate")
-    frame:SetSize(640, 448)
+    frame:SetSize(640, 474)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
     frame:SetMovable(true)
@@ -362,6 +598,14 @@ local function Build()
             row:SetPoint("TOPLEFT", itemRows[i - 1], "BOTTOMLEFT", 0, 0)
         end
 
+        -- Fond d'en-tete de categorie
+        local headerBg = UI.Solid(row, "BACKGROUND")
+        headerBg:SetAllPoints()
+        local hb = UI.ROW_HL
+        headerBg:SetVertexColor(hb[1], hb[2], hb[3], 0.14)
+        headerBg:Hide()
+        row.headerBg = headerBg
+
         local sel = UI.Solid(row, "BACKGROUND")
         sel:SetAllPoints()
         local hl = UI.ROW_HL
@@ -382,9 +626,17 @@ local function Build()
         hover:SetVertexColor(1, 1, 1, 0.06)
         hover:Hide()
 
+        -- Icone +/- pour les en-tetes de categorie
+        local expand = row:CreateTexture(nil, "OVERLAY")
+        expand:SetSize(16, 16)
+        expand:SetPoint("LEFT", row, "LEFT", 5, 0)
+        expand:Hide()
+        row.expand = expand
+
+        -- Icone d'objet
         local icon = row:CreateTexture(nil, "ARTWORK")
         icon:SetSize(18, 18)
-        icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+        icon:SetPoint("LEFT", row, "LEFT", 8, 0)
         icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
         row.icon = icon
 
@@ -395,22 +647,29 @@ local function Build()
         count:SetTextColor(0.85, 0.85, 0.85)
         row.count = count
 
+        -- Nom : position fixe (vaut pour en-tete et objet)
         local nm = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        nm:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+        nm:SetPoint("LEFT", row, "LEFT", 28, 0)
         nm:SetPoint("RIGHT", count, "LEFT", -4, 0)
         nm:SetJustifyH("LEFT")
         row.name = nm
 
         row:SetScript("OnEnter", function(self)
             hover:Show()
-            if self.id then
+            if self.rowType == "item" and self.id then
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetItemByID(self.id)
                 GameTooltip:Show()
             end
         end)
         row:SetScript("OnLeave", function() hover:Hide(); GameTooltip:Hide() end)
-        row:SetScript("OnClick", function(self) if self.id then SelectItem(self.id) end end)
+        row:SetScript("OnClick", function(self)
+            if self.rowType == "header" then
+                ToggleCategory(self.catId)
+            elseif self.id then
+                SelectItem(self.id)
+            end
+        end)
 
         itemRows[i] = row
     end
@@ -419,8 +678,9 @@ local function Build()
     local vline = UI.Solid(frame, "ARTWORK")
     vline:SetWidth(1)
     vline:SetPoint("TOPLEFT", frame, "TOPLEFT", 254, -54)
-    vline:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 254, 44)
+    vline:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 254, 52)
     vline:SetVertexColor(0.25, 0.25, 0.30, 1)
+    frame.vline = vline
 
     -- ----- Detail (droite) -----
     detail.rows = {}
@@ -548,20 +808,133 @@ local function Build()
     detail.hint:SetWidth(330)
     detail.hint:SetText(TS:L("BROWSER_HINT"))
 
-    -- ----- Pied de page -----
+    -- ============================================================
+    --  Page Or (cachee par defaut)
+    -- ============================================================
+    goldPage = CreateFrame("Frame", nil, frame)
+    goldPage:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -54)
+    goldPage:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 58)
+    goldPage:Hide()
+
+    -- En-tete de colonnes
+    local gh = goldPage:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    gh:SetPoint("TOPLEFT", goldPage, "TOPLEFT", 24, -4)
+    gh:SetText(TS:L("COL_CHARACTER"))
+    local ghv = goldPage:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ghv:SetPoint("TOPRIGHT", goldPage, "TOPRIGHT", -14, -4)
+    ghv:SetText(TS:L("GOLD"))
+
+    -- Liste defilante des persos
+    goldScroll = CreateFrame("ScrollFrame", "TomoSyncGoldScroll", goldPage, "FauxScrollFrameTemplate")
+    goldScroll:SetPoint("TOPLEFT", goldPage, "TOPLEFT", 4, -22)
+    goldScroll:SetSize(600, GOLD_VISIBLE * GOLD_ROW_H)
+    goldScroll:SetScript("OnVerticalScroll", function(self, offset)
+        FauxScrollFrame_OnVerticalScroll(self, offset, GOLD_ROW_H, UpdateGold)
+    end)
+    UI.SkinScrollBar(goldScroll.ScrollBar or _G["TomoSyncGoldScrollScrollBar"])
+    local function GoldWheel(delta)
+        local sb = goldScroll.ScrollBar or _G["TomoSyncGoldScrollScrollBar"]
+        if sb then sb:SetValue(sb:GetValue() - delta * GOLD_ROW_H * 2) end
+    end
+    goldScroll:EnableMouseWheel(true)
+    goldScroll:SetScript("OnMouseWheel", function(_, d) GoldWheel(d) end)
+
+    for i = 1, GOLD_VISIBLE do
+        local r = CreateFrame("Frame", nil, goldPage)
+        r:SetSize(600, GOLD_ROW_H)
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d) GoldWheel(d) end)
+        if i == 1 then
+            r:SetPoint("TOPLEFT", goldScroll, "TOPLEFT", 0, 0)
+        else
+            r:SetPoint("TOPLEFT", goldRows[i - 1], "BOTTOMLEFT", 0, 0)
+        end
+        local hl = UI.Solid(r, "BACKGROUND"); hl:SetAllPoints()
+        local rh = UI.ROW_HL; hl:SetVertexColor(rh[1], rh[2], rh[3], 0.10); hl:Hide(); r.hl = hl
+        local bar = UI.Solid(r, "BACKGROUND"); bar:SetSize(3, GOLD_ROW_H); bar:SetPoint("LEFT", r, "LEFT", 0, 0)
+        local pp = UI.PURPLE; bar:SetVertexColor(pp[1], pp[2], pp[3], 1); bar:Hide(); r.bar = bar
+        local dot = UI.CreateDiamond(r, 8, { 1, 1, 1 }); dot:SetPoint("LEFT", r, "LEFT", 12, 0); r.dot = dot
+        local val = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        val:SetPoint("RIGHT", r, "RIGHT", -12, 0); val:SetJustifyH("RIGHT"); r.value = val
+        local nm = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        nm:SetPoint("LEFT", dot, "RIGHT", 8, 0); nm:SetPoint("RIGHT", val, "LEFT", -8, 0); nm:SetJustifyH("LEFT"); r.name = nm
+        r:Hide()
+        goldRows[i] = r
+    end
+
+    -- Separateur + ligne Warband + Total
+    local gsep = UI.CreateSeparator(goldPage, UI.PURPLE, 0.30)
+    gsep:SetPoint("TOPLEFT", goldPage, "TOPLEFT", 8, -256)
+    gsep:SetPoint("TOPRIGHT", goldPage, "TOPRIGHT", -8, -256)
+
+    goldWB = CreateFrame("Frame", nil, goldPage)
+    goldWB:SetSize(600, GOLD_ROW_H)
+    goldWB:SetPoint("TOPLEFT", goldPage, "TOPLEFT", 4, -262)
+    do
+        local cy = UI.CYAN
+        local wdot = UI.CreateDiamond(goldWB, 9, UI.CYAN); wdot:SetPoint("LEFT", goldWB, "LEFT", 12, 0)
+        local wlbl = goldWB:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        wlbl:SetPoint("LEFT", wdot, "RIGHT", 8, 0); wlbl:SetText(TS:L("WARBAND")); wlbl:SetTextColor(cy[1], cy[2], cy[3])
+        local wval = goldWB:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        wval:SetPoint("RIGHT", goldWB, "RIGHT", -12, 0); wval:SetJustifyH("RIGHT"); wval:SetTextColor(cy[1], cy[2], cy[3])
+        goldWB.value = wval
+    end
+
+    goldTotal = CreateFrame("Frame", nil, goldPage)
+    goldTotal:SetSize(600, GOLD_ROW_H)
+    goldTotal:SetPoint("TOPLEFT", goldPage, "TOPLEFT", 4, -292)
+    do
+        local p = UI.PURPLE
+        local tlbl = goldTotal:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        tlbl:SetPoint("LEFT", goldTotal, "LEFT", 12, 0); tlbl:SetText(TS:L("TOTAL")); tlbl:SetTextColor(p[1], p[2], p[3])
+        local tval = goldTotal:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        tval:SetPoint("RIGHT", goldTotal, "RIGHT", -12, 0); tval:SetJustifyH("RIGHT"); tval:SetTextColor(p[1], p[2], p[3])
+        goldTotal.value = tval
+    end
+
+    -- ============================================================
+    --  Pied de page : separateur + onglets + boutons
+    -- ============================================================
     local footSep = UI.CreateSeparator(frame, { 0.2, 0.2, 0.24 }, 1)
-    footSep:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 40)
+    footSep:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 44)
     footSep:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 0)
 
     frame.countLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    frame.countLabel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 14)
+    frame.countLabel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 48)
 
+    -- Onglets
+    local function MakeTab(label, onClick)
+        local t = CreateFrame("Button", nil, frame)
+        local fs = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("CENTER", 0, 1)
+        fs:SetText(label)
+        t.Text = fs
+        local w = fs:GetStringWidth() or 40
+        if w < 30 then w = 30 end
+        t:SetSize(w + 22, 26)
+        local ul = UI.Solid(t, "OVERLAY")
+        ul:SetHeight(2)
+        ul:SetPoint("BOTTOMLEFT", t, "BOTTOMLEFT", 4, 2)
+        ul:SetPoint("BOTTOMRIGHT", t, "BOTTOMRIGHT", -4, 2)
+        local p = UI.PURPLE; ul:SetVertexColor(p[1], p[2], p[3], 1); ul:Hide()
+        t.underline = ul
+        t:SetScript("OnEnter", function() if not t.active then fs:SetTextColor(0.85, 0.85, 0.9) end end)
+        t:SetScript("OnLeave", function() if not t.active then fs:SetTextColor(0.6, 0.6, 0.65) end end)
+        t:SetScript("OnClick", onClick)
+        return t
+    end
+    tabItems = MakeTab(TS:L("TAB_ITEMS"), function() SwitchView("items") end)
+    tabItems:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 10)
+    tabGold = MakeTab(TS:L("GOLD"), function() SwitchView("gold") end)
+    tabGold:SetPoint("LEFT", tabItems, "RIGHT", 4, 0)
+
+    -- Boutons
     local scanBtn = UI.CreateButton(frame, TS:L("BTN_SCAN"), 130, 24)
-    scanBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -148, 10)
+    scanBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -148, 11)
     scanBtn:SetScript("OnClick", function()
         local sc = TS.modules["Scanner"]
         if sc then
-            sc:ScanBags(); sc:ScanEquipped()
+            sc:ScanBags(); sc:ScanEquipped(); sc:ScanMoney()
             if sc.atBank then sc:ScanBank(); sc:ScanWarband() end
             TS:Print(TS:L("SCAN_BAGS_DONE"))
             Browser:Refresh()
@@ -569,7 +942,7 @@ local function Build()
     end)
 
     local cfgBtn = UI.CreateButton(frame, TS:L("BTN_SETTINGS"), 130, 24)
-    cfgBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 10)
+    cfgBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 11)
     cfgBtn:SetScript("OnClick", function()
         if TomoSyncConfig and TomoSyncConfig.Toggle then TomoSyncConfig:Toggle() end
     end)
@@ -578,11 +951,11 @@ local function Build()
     evtFrame = CreateFrame("Frame")
     evtFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     evtFrame:SetScript("OnEvent", function()
-        if not frame:IsShown() then return end
+        if not frame:IsShown() or currentView ~= "items" then return end
         if evtFrame._t then return end
         evtFrame._t = C_Timer.NewTimer(0.3, function()
             evtFrame._t = nil
-            if frame:IsShown() then
+            if frame:IsShown() and currentView == "items" then
                 BuildItemList()
                 UpdateList()
                 UpdateDetail()
@@ -603,11 +976,9 @@ function Browser:Toggle()
         frame:Hide()
     else
         frame:Show()
-        BuildItemList()
-        selectedID = itemList[1] and itemList[1].id or nil
         local sb = _G["TomoSyncBrowserScrollScrollBar"]
         if sb then sb:SetValue(0) end
-        UpdateList()
-        UpdateDetail()
+        selectedID = nil
+        SwitchView(currentView)
     end
 end

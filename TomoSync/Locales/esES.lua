@@ -42,4 +42,13 @@ TomoSyncLocale = {
     CFG_MINIMAP_BUTTON = "Botón del minimapa",
     MM_LEFT         = "Clic izquierdo: abrir ventana",
     MM_RIGHT        = "Clic derecho: ajustes",
+    GOLD            = "Oro",
+    TAB_ITEMS       = "Objetos",
+    CAT_CONSUMABLE  = "Consumibles",
+    CAT_COMPONENTS  = "Componentes",
+    CAT_EQUIPMENT   = "Equipo",
+    CAT_CONTAINER   = "Contenedores",
+    CAT_RECIPE      = "Recetas",
+    CAT_QUEST       = "Misión",
+    CAT_MISC        = "Misceláneos",
 }

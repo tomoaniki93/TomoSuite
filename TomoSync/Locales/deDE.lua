@@ -42,4 +42,13 @@ TomoSyncLocale = {
     CFG_MINIMAP_BUTTON = "Minikarten-Button",
     MM_LEFT         = "Linksklick: Fenster öffnen",
     MM_RIGHT        = "Rechtsklick: Einstellungen",
+    GOLD            = "Gold",
+    TAB_ITEMS       = "Gegenstände",
+    CAT_CONSUMABLE  = "Verbrauchbar",
+    CAT_COMPONENTS  = "Reagenzien",
+    CAT_EQUIPMENT   = "Ausrüstung",
+    CAT_CONTAINER   = "Behälter",
+    CAT_RECIPE      = "Rezepte",
+    CAT_QUEST       = "Quest",
+    CAT_MISC        = "Verschiedenes",
 }

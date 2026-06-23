@@ -96,6 +96,19 @@ function TS:GetItemIcon(itemID)
     return nil
 end
 
+-- Icone + classID (Enum.ItemClass) en un seul appel, pour le classement
+function TS:GetItemInstant(itemID)
+    if C_Item and C_Item.GetItemInfoInstant then
+        local ok, _, _, _, _, icon, classID = pcall(C_Item.GetItemInfoInstant, itemID)
+        if ok then return icon, classID end
+    end
+    if GetItemInfoInstant then
+        local _, _, _, _, icon, classID = GetItemInfoInstant(itemID)
+        return icon, classID
+    end
+    return nil, nil
+end
+
 -- Qualite d'objet (0..8) ou nil
 function TS:GetItemQuality(itemID)
     if C_Item and C_Item.GetItemInfo then

@@ -42,4 +42,13 @@ TomoSyncLocale = {
     CFG_MINIMAP_BUTTON = "Bouton de la minicarte",
     MM_LEFT         = "Clic gauche : ouvrir la fenêtre",
     MM_RIGHT        = "Clic droit : paramètres",
+    GOLD            = "Or",
+    TAB_ITEMS       = "Objets",
+    CAT_CONSUMABLE  = "Consommables",
+    CAT_COMPONENTS  = "Composants",
+    CAT_EQUIPMENT   = "Équipement",
+    CAT_CONTAINER   = "Conteneurs",
+    CAT_RECIPE      = "Recettes",
+    CAT_QUEST       = "Quête",
+    CAT_MISC        = "Divers",
 }

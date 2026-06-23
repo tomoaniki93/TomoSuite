@@ -43,6 +43,15 @@ local defaults = {
     CFG_MINIMAP_BUTTON = "Minimap button",
     MM_LEFT         = "Left-click: open window",
     MM_RIGHT        = "Right-click: settings",
+    GOLD            = "Gold",
+    TAB_ITEMS       = "Items",
+    CAT_CONSUMABLE  = "Consumables",
+    CAT_COMPONENTS  = "Reagents",
+    CAT_EQUIPMENT   = "Equipment",
+    CAT_CONTAINER   = "Containers",
+    CAT_RECIPE      = "Recipes",
+    CAT_QUEST       = "Quest",
+    CAT_MISC        = "Miscellaneous",
 }
 
 TomoSyncLocale = TomoSyncLocale or {}

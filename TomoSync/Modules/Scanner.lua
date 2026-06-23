@@ -165,11 +165,26 @@ function Scanner:ScanWarband()
         end)
     end
     wb.lastScan = time()
+    -- Or du coffre Warband (compte) — disponible a la banque
+    if C_Bank and C_Bank.FetchDepositedMoney then
+        local ok, money = pcall(C_Bank.FetchDepositedMoney, BANK_TYPE_ACCOUNT)
+        if ok and money and not IsSecret(money) then wb.money = money end
+    end
     local n = 0
     for _ in pairs(wb.items) do n = n + 1 end
     wb.count = n
     Scanner:AfterScan()
     return n
+end
+
+-- Or du personnage courant (en cuivre)
+function Scanner:ScanMoney()
+    if not TS.db or not TS.db.char then return end
+    local m = GetMoney and GetMoney() or 0
+    if not IsSecret(m) then
+        TS.db.char.money = m
+        Scanner:AfterScan()
+    end
 end
 
 function Scanner:ScanEquipped()
@@ -203,6 +218,7 @@ function Scanner:OnInitialize()
     scanFrame:RegisterEvent("BANKFRAME_OPENED")
     scanFrame:RegisterEvent("BANKFRAME_CLOSED")
     scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    scanFrame:RegisterEvent("PLAYER_MONEY")
 
     scanFrame:SetScript("OnEvent", function(self, event)
         if event == "BAG_UPDATE" then
@@ -242,14 +258,21 @@ function Scanner:OnInitialize()
 
         elseif event == "PLAYER_EQUIPMENT_CHANGED" then
             Scanner:ScanEquipped()
+
+        elseif event == "PLAYER_MONEY" then
+            Scanner:ScanMoney()
+            -- Un depot/retrait au coffre Warband modifie aussi l'or perso : on
+            -- en profite pour rafraichir l'or du coffre quand on est a la banque.
+            if Scanner.atBank then Scanner:ScanWarband() end
         end
     end)
 end
 
 function Scanner:OnEnteringWorld()
-    -- Scan initial des sacs et de l'equipement au login
+    -- Scan initial des sacs, de l'equipement et de l'or au login
     C_Timer.After(1.0, function()
         Scanner:ScanBags()
         Scanner:ScanEquipped()
+        Scanner:ScanMoney()
     end)
 end

@@ -3,6 +3,32 @@
 All notable changes to TomoSync are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); this project keeps granular per-file notes.
 
+## [1.3.0] — 2026-06-20
+
+### Changed
+
+#### Modules/Browser.lua
+The items list is now organised into **collapsible category sections** (accordion) instead of one long flat scroll. Items are grouped into Consumables, Reagents, Equipment, Containers, Recipes, Quest and Miscellaneous — classified by `classID` from `GetItemInfoInstant` (synchronous, so grouping is immediate). Each category shows a header with a +/- toggle and its item count; clicking collapses or expands it (state kept for the session). A search expands all categories so matches are always visible. Item names are now coloured by quality, and the default selection lands on the first item under the first expanded category.
+
+#### Core.lua
+Added `GetItemInstant` (returns icon + `classID` in a single `GetItemInfoInstant` call) used by the category grouping.
+
+#### Locales/*.lua
+Added 7 category keys (`CAT_CONSUMABLE`, `CAT_COMPONENTS`, `CAT_EQUIPMENT`, `CAT_CONTAINER`, `CAT_RECIPE`, `CAT_QUEST`, `CAT_MISC`) to all six locales (parity now 46 keys each).
+
+## [1.2.0] — 2026-06-20
+
+### Added
+
+#### Modules/Browser.lua
+A **Gold** view, reachable from a new tab strip at the bottom of the window (**Items** / **Gold**). The gold view lists every tracked character with their gold (class-coloured, sorted by amount, current character highlighted), plus a shared **Warband bank** gold line and a grand total — all formatted with coin icons via `GetCoinTextureString`. The character list is a scrollable `FauxScrollFrame` (skinned + mouse-wheel) so any number of alts fits. Switching tabs shows/hides the relevant view; the item-name refresh is now gated to the items view so it can't bleed into the gold page. Window height increased to fit the tab strip.
+
+#### Modules/Scanner.lua
+Gold tracking. Character gold is read with `GetMoney()` on `PLAYER_MONEY` and at login (`ScanMoney`, stored per character). Warband bank gold is read with `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` during the bank scan (stored under `_account.warband.money`); a `PLAYER_MONEY` event while at the bank also refreshes it, so deposits/withdrawals are captured.
+
+#### Locales/*.lua
+Added `GOLD` and `TAB_ITEMS` to all six locales (parity now 39 keys each).
+
 ## [1.1.4] — 2026-06-20
 
 ### Added
