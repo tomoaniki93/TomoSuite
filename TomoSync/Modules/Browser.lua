@@ -22,16 +22,25 @@ local itemCount = 0
 local searchText = ""
 local selectedID = nil
 
--- Onglets / vue Or
-local currentView = "items"        -- "items" | "gold"
-local tabItems, tabGold
+-- Onglets / vue Or / vue Temps
+local currentView = "items"        -- "items" | "gold" | "time"
+local tabItems, tabGold, tabTime
 local goldPage, goldScroll
 local goldRows = {}
 local goldList = {}
 local goldWB, goldTotal            -- lignes fixes (Warband + Total)
 
+-- Vue Temps de jeu
+local PLAYED_VISIBLE, PLAYED_ROW_H = 9, 26
+local playedPage, playedScroll
+local playedRows = {}
+local playedList = {}
+local playedTotalRow               -- ligne fixe (Total)
+local playedTicker                 -- rafraichit la valeur "live" du perso courant
+
 -- Forward declarations
 local UpdateList, UpdateDetail, SelectItem, UpdateGold, SwitchView, HideItemsView, ToggleCategory
+local BuildPlayed, UpdatePlayed
 
 -- ============================================================
 --  Categories (accordeon)
@@ -415,6 +424,105 @@ function UpdateGold()
 end
 
 -- ============================================================
+--  Vue Temps de jeu : temps joue par perso + total
+-- ============================================================
+
+local function PlayedText(sec)
+    if sec == nil then return "|cFF555555-|r" end
+    sec = math.floor(sec)
+    local d = math.floor(sec / 86400)
+    local h = math.floor((sec % 86400) / 3600)
+    local m = math.floor((sec % 3600) / 60)
+    local D, H, M = TS:L("TIME_D"), TS:L("TIME_H"), TS:L("TIME_M")
+    if d > 0 then
+        return string.format("%d%s %d%s %d%s", d, D, h, H, m, M)
+    elseif h > 0 then
+        return string.format("%d%s %d%s", h, H, m, M)
+    else
+        return string.format("%d%s", m, M)
+    end
+end
+
+-- Temps joue (live pour le perso courant) d'une entree perso, ou nil si jamais capture.
+local function PlayedSecondsFor(realm, charName, isCurrent)
+    local sc = TS.modules["Scanner"]
+    local e = TS:GetCharEntry(realm, charName)
+    if not e then return nil end
+    if sc and sc.GetPlayedSeconds then return sc:GetPlayedSeconds(e, isCurrent) end
+    return e.played
+end
+
+-- Construit + trie la liste. Le perso courant est trie sur sa valeur live au
+-- moment du build ; l'affichage live est ensuite recalcule a chaque frame.
+function BuildPlayed()
+    wipe(playedList)
+    local s = TS.db and TS.db.settings
+    local onlyRealm = s and s.onlyRealm
+    TS:ForEachChar(function(realm, charName, entry)
+        if onlyRealm and realm ~= TS.realm then return end
+        local isCurrent = (charName == TS.charName and realm == TS.realm)
+        playedList[#playedList + 1] = {
+            name = charName, realm = realm,
+            color = TS:ClassColorTriple(entry.class),
+            seconds = PlayedSecondsFor(realm, charName, isCurrent),  -- peut etre nil
+            isCurrent = isCurrent,
+        }
+    end)
+    table.sort(playedList, function(a, b)
+        local av, bv = a.seconds or -1, b.seconds or -1
+        if av ~= bv then return av > bv end
+        return a.name < b.name
+    end)
+end
+
+-- Rendu seul (ni rebuild ni tri) : utilise par Refresh, le changement d'onglet
+-- et le ticker 1 s. Recalcule la valeur live du perso courant + le total.
+function UpdatePlayed()
+    local n = #playedList
+    FauxScrollFrame_Update(playedScroll, n, PLAYED_VISIBLE, PLAYED_ROW_H)
+    local offset = FauxScrollFrame_GetOffset(playedScroll)
+
+    local grand = 0
+    for _, d in ipairs(playedList) do
+        local sec = d.isCurrent and PlayedSecondsFor(d.realm, d.name, true) or d.seconds
+        grand = grand + (sec or 0)
+    end
+
+    for i = 1, PLAYED_VISIBLE do
+        local row = playedRows[i]
+        local d = playedList[i + offset]
+        if d then
+            local label = d.name
+            if d.realm ~= TS.realm then label = label .. "  |cFF888888[" .. d.realm .. "]|r" end
+            row.name:SetText(label)
+            row.name:SetTextColor(d.color[1], d.color[2], d.color[3])
+            row.dot:SetVertexColor(d.color[1], d.color[2], d.color[3], 1)
+            local sec = d.isCurrent and PlayedSecondsFor(d.realm, d.name, true) or d.seconds
+            row.value:SetText(PlayedText(sec))
+            if d.isCurrent then row.hl:Show(); row.bar:Show() else row.hl:Hide(); row.bar:Hide() end
+            row:Show()
+        else
+            row:Hide()
+        end
+    end
+
+    playedTotalRow.value:SetText(PlayedText(grand))
+end
+
+local function StartPlayedTicker()
+    if playedTicker then return end
+    playedTicker = C_Timer.NewTicker(1, function()
+        if currentView == "time" and frame and frame:IsShown() then
+            UpdatePlayed()
+        end
+    end)
+end
+
+local function StopPlayedTicker()
+    if playedTicker then playedTicker:Cancel(); playedTicker = nil end
+end
+
+-- ============================================================
 --  Bascule de vue (onglets)
 -- ============================================================
 
@@ -447,12 +555,24 @@ function SwitchView(view)
     currentView = view
     SetTabVisual(tabItems, view == "items")
     SetTabVisual(tabGold,  view == "gold")
+    SetTabVisual(tabTime,  view == "time")
     if view == "gold" then
+        StopPlayedTicker()
         HideItemsView()
+        if playedPage then playedPage:Hide() end
         goldPage:Show()
         UpdateGold()
-    else
+    elseif view == "time" then
+        HideItemsView()
         goldPage:Hide()
+        playedPage:Show()
+        BuildPlayed()
+        UpdatePlayed()
+        StartPlayedTicker()
+    else
+        StopPlayedTicker()
+        goldPage:Hide()
+        if playedPage then playedPage:Hide() end
         if frame.search then frame.search:Show() end
         if scrollFrame then scrollFrame:Show() end
         if frame.vline then frame.vline:Show() end
@@ -472,6 +592,11 @@ function Browser:Refresh()
     if not frame or not frame:IsShown() then return end
     if currentView == "gold" then
         UpdateGold()
+        return
+    end
+    if currentView == "time" then
+        BuildPlayed()
+        UpdatePlayed()
         return
     end
     BuildItemList()
@@ -893,6 +1018,77 @@ local function Build()
     end
 
     -- ============================================================
+    --  Page Temps de jeu (cachee par defaut)
+    -- ============================================================
+    playedPage = CreateFrame("Frame", nil, frame)
+    playedPage:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -54)
+    playedPage:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 58)
+    playedPage:Hide()
+
+    -- En-tete de colonnes
+    local th = playedPage:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    th:SetPoint("TOPLEFT", playedPage, "TOPLEFT", 24, -4)
+    th:SetText(TS:L("COL_CHARACTER"))
+    local thv = playedPage:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    thv:SetPoint("TOPRIGHT", playedPage, "TOPRIGHT", -14, -4)
+    thv:SetText(TS:L("PLAYED"))
+
+    -- Liste defilante des persos
+    playedScroll = CreateFrame("ScrollFrame", "TomoSyncPlayedScroll", playedPage, "FauxScrollFrameTemplate")
+    playedScroll:SetPoint("TOPLEFT", playedPage, "TOPLEFT", 4, -22)
+    playedScroll:SetSize(600, PLAYED_VISIBLE * PLAYED_ROW_H)
+    playedScroll:SetScript("OnVerticalScroll", function(self, offset)
+        FauxScrollFrame_OnVerticalScroll(self, offset, PLAYED_ROW_H, UpdatePlayed)
+    end)
+    UI.SkinScrollBar(playedScroll.ScrollBar or _G["TomoSyncPlayedScrollScrollBar"])
+    local function PlayedWheel(delta)
+        local sb = playedScroll.ScrollBar or _G["TomoSyncPlayedScrollScrollBar"]
+        if sb then sb:SetValue(sb:GetValue() - delta * PLAYED_ROW_H * 2) end
+    end
+    playedScroll:EnableMouseWheel(true)
+    playedScroll:SetScript("OnMouseWheel", function(_, d) PlayedWheel(d) end)
+
+    for i = 1, PLAYED_VISIBLE do
+        local r = CreateFrame("Frame", nil, playedPage)
+        r:SetSize(600, PLAYED_ROW_H)
+        r:EnableMouseWheel(true)
+        r:SetScript("OnMouseWheel", function(_, d) PlayedWheel(d) end)
+        if i == 1 then
+            r:SetPoint("TOPLEFT", playedScroll, "TOPLEFT", 0, 0)
+        else
+            r:SetPoint("TOPLEFT", playedRows[i - 1], "BOTTOMLEFT", 0, 0)
+        end
+        local hl = UI.Solid(r, "BACKGROUND"); hl:SetAllPoints()
+        local rh = UI.ROW_HL; hl:SetVertexColor(rh[1], rh[2], rh[3], 0.10); hl:Hide(); r.hl = hl
+        local bar = UI.Solid(r, "BACKGROUND"); bar:SetSize(3, PLAYED_ROW_H); bar:SetPoint("LEFT", r, "LEFT", 0, 0)
+        local pp = UI.PURPLE; bar:SetVertexColor(pp[1], pp[2], pp[3], 1); bar:Hide(); r.bar = bar
+        local dot = UI.CreateDiamond(r, 8, { 1, 1, 1 }); dot:SetPoint("LEFT", r, "LEFT", 12, 0); r.dot = dot
+        local val = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        val:SetPoint("RIGHT", r, "RIGHT", -12, 0); val:SetJustifyH("RIGHT"); r.value = val
+        local nm = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        nm:SetPoint("LEFT", dot, "RIGHT", 8, 0); nm:SetPoint("RIGHT", val, "LEFT", -8, 0); nm:SetJustifyH("LEFT"); r.name = nm
+        r:Hide()
+        playedRows[i] = r
+    end
+
+    -- Separateur + ligne Total (pas de Warband : le temps joue n'est pas account-wide)
+    local tsep = UI.CreateSeparator(playedPage, UI.PURPLE, 0.30)
+    tsep:SetPoint("TOPLEFT", playedPage, "TOPLEFT", 8, -256)
+    tsep:SetPoint("TOPRIGHT", playedPage, "TOPRIGHT", -8, -256)
+
+    playedTotalRow = CreateFrame("Frame", nil, playedPage)
+    playedTotalRow:SetSize(600, PLAYED_ROW_H)
+    playedTotalRow:SetPoint("TOPLEFT", playedPage, "TOPLEFT", 4, -262)
+    do
+        local p = UI.PURPLE
+        local tlbl = playedTotalRow:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        tlbl:SetPoint("LEFT", playedTotalRow, "LEFT", 12, 0); tlbl:SetText(TS:L("TOTAL")); tlbl:SetTextColor(p[1], p[2], p[3])
+        local tval = playedTotalRow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        tval:SetPoint("RIGHT", playedTotalRow, "RIGHT", -12, 0); tval:SetJustifyH("RIGHT"); tval:SetTextColor(p[1], p[2], p[3])
+        playedTotalRow.value = tval
+    end
+
+    -- ============================================================
     --  Pied de page : separateur + onglets + boutons
     -- ============================================================
     local footSep = UI.CreateSeparator(frame, { 0.2, 0.2, 0.24 }, 1)
@@ -927,6 +1123,8 @@ local function Build()
     tabItems:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 10)
     tabGold = MakeTab(TS:L("GOLD"), function() SwitchView("gold") end)
     tabGold:SetPoint("LEFT", tabItems, "RIGHT", 4, 0)
+    tabTime = MakeTab(TS:L("TAB_TIME"), function() SwitchView("time") end)
+    tabTime:SetPoint("LEFT", tabGold, "RIGHT", 4, 0)
 
     -- Boutons
     local scanBtn = UI.CreateButton(frame, TS:L("BTN_SCAN"), 130, 24)
@@ -962,6 +1160,9 @@ local function Build()
             end
         end)
     end)
+
+    -- Coupe le ticker "temps live" quand la fenetre se ferme
+    frame:HookScript("OnHide", function() StopPlayedTicker() end)
 
     tinsert(UISpecialFrames, "TomoSyncBrowser")
 end

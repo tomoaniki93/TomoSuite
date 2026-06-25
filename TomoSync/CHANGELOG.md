@@ -3,6 +3,19 @@
 All notable changes to TomoSync are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); this project keeps granular per-file notes.
 
+## [1.4.0] — 2026-06-25
+
+### Added
+
+#### Modules/Browser.lua
+A **Time** view, reachable from a third tab in the bottom strip (**Items** / **Gold** / **Time**). It lists every tracked character with their total `/played` time (class-coloured, sorted descending, current character highlighted) plus a grand **Total** — there is no Warband line since playtime is per-character, not account-wide. Time is formatted compactly (`Xj Yh Zm` / `Xd Yh Zm`). The current character's time updates **live** once per second via a ticker that runs *only* while the Time tab is visible (and is cancelled when the window hides), and which re-renders values without re-sorting so rows never flicker. The character list is a scrollable `FauxScrollFrame` (skinned + mouse-wheel), consistent with the Gold view. Characters that have never been captured show a grey dash.
+
+#### Modules/Scanner.lua
+Playtime tracking. WoW exposes no synchronous getter, so the data is captured by calling `RequestTimePlayed()` once per session (2 s after login) and reading `TIME_PLAYED_MSG`. Per character we store `played` (cumulative seconds at the last anchor), `playedAt` (wall-clock at that anchor) and `playedLevel`. The **current** character is shown live as `played + (now - playedAt)`; alts show their frozen snapshot. The snapshot is re-anchored on `PLAYER_LOGOUT` — just before SavedVariables are written — so the persisted value stays exact when viewed from another character. A runtime `playedCaptured` guard prevents adding offline time before the first capture of the session. The default *"Time played"* chat line is suppressed for our silent request by wrapping `ChatFrame_DisplayTimePlayed` (best-effort; harmless if absent), reset on the next frame so manual `/played` still prints.
+
+#### Locales/*.lua
+Added 5 keys (`TAB_TIME`, `PLAYED`, `TIME_D`, `TIME_H`, `TIME_M`) to all six locales (parity now 51 keys each).
+
 ## [1.3.0] — 2026-06-20
 
 ### Changed

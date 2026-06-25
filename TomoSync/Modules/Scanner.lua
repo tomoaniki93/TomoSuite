@@ -208,6 +208,85 @@ function Scanner:ScanEquipped()
 end
 
 -- ============================================================
+--  Temps de jeu (TIME_PLAYED_MSG)
+-- ============================================================
+-- WoW n'expose aucun getter synchrone du temps joue : il faut appeler
+-- RequestTimePlayed() et capter TIME_PLAYED_MSG (totalTime, levelTime en s).
+--
+-- Modele de stockage (par personnage) :
+--   entry.played      = secondes cumulees au dernier "ancrage"
+--   entry.playedAt    = time() (horloge murale) au moment de cet ancrage
+--   entry.playedLevel = secondes au niveau courant (info)
+-- Pour le personnage COURANT on affiche une valeur "live" = played + (now - playedAt).
+-- Pour les autres on affiche l'instantane fige. On reancre a la deconnexion
+-- (PLAYER_LOGOUT, juste avant l'ecriture des SavedVariables) pour persister exact.
+--
+-- playedCaptured (runtime) : vrai une fois la valeur recue CETTE session. Tant
+-- qu'il est faux, on n'ajoute pas le delta (playedAt date de la session passee,
+-- sinon on compterait le temps hors-ligne).
+
+-- Suppression "best-effort" du message "Temps de jeu joue" lors de nos requetes
+-- silencieuses : on enveloppe ChatFrame_DisplayTimePlayed pour avaler l'affichage
+-- par defaut uniquement quand silentPlayed est vrai. Reste sans effet (et donc
+-- inoffensif) si la fonction n'existe pas dans cette version du client.
+local silentPlayed = false
+do
+    local orig = _G.ChatFrame_DisplayTimePlayed
+    if type(orig) == "function" then
+        _G.ChatFrame_DisplayTimePlayed = function(...)
+            if silentPlayed then return end
+            return orig(...)
+        end
+    end
+end
+
+local function RequestPlayedSilent()
+    silentPlayed = true
+    if RequestTimePlayed then RequestTimePlayed() end
+end
+
+-- Recu de TIME_PLAYED_MSG : enregistre l'instantane pour le perso courant.
+function Scanner:OnTimePlayed(total, level)
+    if IsSecret(total) then return end
+    local e = TS.db and TS.db.char
+    if not e then return end
+    e.played      = total
+    e.playedAt    = time()
+    if level and not IsSecret(level) then e.playedLevel = level end
+    self.playedCaptured = true
+    Scanner:AfterScan()
+    -- Reset au prochain frame : couvre tout le dispatch de l'evenement (l'ordre
+    -- d'execution entre notre frame et le ChatFrame n'est pas garanti).
+    if silentPlayed then
+        C_Timer.After(0, function() silentPlayed = false end)
+    end
+end
+
+-- Temps joue en secondes. isCurrent => valeur "live" (instantane + temps ecoule).
+function Scanner:GetPlayedSeconds(entry, isCurrent)
+    if not entry then return nil end
+    local base = entry.played
+    if base == nil then return nil end
+    if isCurrent and self.playedCaptured and entry.playedAt then
+        local delta = time() - entry.playedAt
+        if delta < 0 then delta = 0 end
+        return base + delta
+    end
+    return base
+end
+
+-- Reancre l'instantane du perso courant sur sa valeur live (a la deconnexion).
+function Scanner:AnchorPlayed()
+    if not self.playedCaptured then return end
+    local e = TS.db and TS.db.char
+    if not e or e.played == nil or not e.playedAt then return end
+    local delta = time() - e.playedAt
+    if delta < 0 then delta = 0 end
+    e.played   = e.played + delta
+    e.playedAt = time()
+end
+
+-- ============================================================
 --  Evenements
 -- ============================================================
 
@@ -219,8 +298,10 @@ function Scanner:OnInitialize()
     scanFrame:RegisterEvent("BANKFRAME_CLOSED")
     scanFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     scanFrame:RegisterEvent("PLAYER_MONEY")
+    scanFrame:RegisterEvent("TIME_PLAYED_MSG")
+    scanFrame:RegisterEvent("PLAYER_LOGOUT")
 
-    scanFrame:SetScript("OnEvent", function(self, event)
+    scanFrame:SetScript("OnEvent", function(self, event, ...)
         if event == "BAG_UPDATE" then
             -- Throttle : on ne rescanne pas a chaque objet deplace
             if not self._bagTimer then
@@ -264,6 +345,14 @@ function Scanner:OnInitialize()
             -- Un depot/retrait au coffre Warband modifie aussi l'or perso : on
             -- en profite pour rafraichir l'or du coffre quand on est a la banque.
             if Scanner.atBank then Scanner:ScanWarband() end
+
+        elseif event == "TIME_PLAYED_MSG" then
+            local total, level = ...
+            Scanner:OnTimePlayed(total, level)
+
+        elseif event == "PLAYER_LOGOUT" then
+            -- Reancre le temps joue juste avant l'ecriture des SavedVariables.
+            Scanner:AnchorPlayed()
         end
     end)
 end
@@ -275,4 +364,9 @@ function Scanner:OnEnteringWorld()
         Scanner:ScanEquipped()
         Scanner:ScanMoney()
     end)
+    -- Capture du temps joue (une seule fois par session, silencieusement)
+    if not Scanner._playedRequested then
+        Scanner._playedRequested = true
+        C_Timer.After(2.0, RequestPlayedSilent)
+    end
 end

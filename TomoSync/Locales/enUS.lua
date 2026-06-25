@@ -52,6 +52,12 @@ local defaults = {
     CAT_RECIPE      = "Recipes",
     CAT_QUEST       = "Quest",
     CAT_MISC        = "Miscellaneous",
+    -- Temps de jeu (1.4.0)
+    TAB_TIME        = "Time",
+    PLAYED          = "Played",
+    TIME_D          = "d",
+    TIME_H          = "h",
+    TIME_M          = "m",
 }
 
 TomoSyncLocale = TomoSyncLocale or {}

@@ -1,6 +1,6 @@
 # TomoSync
 
-![TomoSync](https://img.shields.io/badge/TomoSync-v1.3.0-CC44FF?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
+![TomoSync](https://img.shields.io/badge/TomoSync-v1.4.0-CC44FF?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
 
 Cross-character item tracker for World of Warcraft (Retail — Midnight), part of the **TomoSuite** collection. TomoSync records what each of your characters is carrying — bags, character bank and equipped gear — plus the shared **Warband bank**, and surfaces it in item tooltips and a searchable browser window.
 

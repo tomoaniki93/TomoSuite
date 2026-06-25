@@ -51,4 +51,10 @@ TomoSyncLocale = {
     CAT_RECIPE      = "Receitas",
     CAT_QUEST       = "Missão",
     CAT_MISC        = "Diversos",
+    -- Temps de jeu (1.4.0)
+    TAB_TIME        = "Tempo",
+    PLAYED          = "Tempo jogado",
+    TIME_D          = "d",
+    TIME_H          = "h",
+    TIME_M          = "m",
 }
