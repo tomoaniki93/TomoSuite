@@ -2,6 +2,15 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.10] - 2026-06-27
+
+### Fixed
+- **Right-click no longer attaches items in the Send tab — you were forced to drag every item one by one.** Root cause: attaching a bag item with a right-click is gated *engine-side* by `SetSendMailShowing(true)`, which Blizzard only ever calls from `MailFrameTab_OnClick` (when its native Send Mail tab is selected). Since 2.1.0 the modern window shows the reparented `SendMailFrame` directly and deliberately bypasses Blizzard's tab handler, so `SetSendMailShowing` was never called true; the engine still believed the inbox tab was active and routed a right-click to *use* the item instead of attaching it. Drag-to-slot kept working because that path calls the attachment slot directly and doesn't read the flag — which is exactly why the symptom looked like "drag works, right-click doesn't." `Modules/Window.lua` now asserts the flag itself: `true` once the Send tab has mounted+shown the frame (`SelectTab`), re-asserted after `MAIL_SEND_SUCCESS` while still on the Send tab, and `false` when switching back to the inbox or hiding the window. The call is wrapped in a `type(...) == "function"` guard + `pcall`, so on any client where the engine function is absent or renamed it silently degrades to the previous (drag-only) behaviour instead of erroring. The actual attach still happens through the player's hardware right-click via `UseContainerItem`, so this changes only the UI-context flag and introduces no taint on the send path.
+- The native `SendMailMailButton` "Send" action was verified intact (the reskin in `Modules/Compose.lua` only strips textures and hooks `OnEnter`/`OnLeave`, never `OnClick`), so the broader "send mail is not working properly" report is resolved by restoring the attach flow above.
+
+### Changed
+- Version bumped to 2.1.10 (`TomoMail.toc`, and the matching `version` string in `Core.lua` used by the load message).
+
 ## [2.1.9] - 2026-06-12
 
 ### Fixed

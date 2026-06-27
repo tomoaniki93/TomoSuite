@@ -47,6 +47,23 @@ local function HideNativeChrome()
 end
 
 -- ============================================================
+--  Engine "send-mail is showing" flag (right-click-to-attach)
+-- ============================================================
+-- Right-clicking a bag item to attach it is gated engine-side by
+-- SetSendMailShowing(), which Blizzard only ever calls from MailFrameTab_OnClick.
+-- Our window shows the reparented SendMailFrame directly and never routes through
+-- that tab handler, so the flag stayed false on the Send tab and a right-click
+-- "used" the item instead of attaching it (drag-to-slot calls the slot directly,
+-- so that path kept working -- exactly the reported symptom). We assert the flag
+-- ourselves: true while the Send tab is up, false otherwise. Guarded so an
+-- absent/renamed engine function degrades to the old behaviour instead of erroring.
+local function SetSendShowing(on)
+    if type(SetSendMailShowing) == "function" then
+        pcall(SetSendMailShowing, on and true or false)
+    end
+end
+
+-- ============================================================
 --  Position persistence
 -- ============================================================
 
@@ -413,11 +430,15 @@ function Window:SelectTab(key)
         if composePage then composePage:Show() end
         local C = TM.modules["Compose"]
         if C and C.OnSelect then C:OnSelect() end
+        -- SendMailFrame is now mounted+shown; tell the engine the send
+        -- interface is active so right-click-to-attach routes correctly.
+        SetSendShowing(true)
     else
         if composePage then composePage:Hide() end
         if inboxPage then inboxPage:Show() end
         local I = TM.modules["Inbox"]
         if I and I.OnSelect then I:OnSelect() end
+        SetSendShowing(false)
     end
     ApplyTabHeight(key)
     PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
@@ -443,6 +464,9 @@ function Window:Show()
 end
 
 function Window:Hide()
+    -- Leaving the mail UI: drop the engine send-showing flag so a later
+    -- right-click outside the mailbox isn't misrouted as an attach.
+    SetSendShowing(false)
     if settings then settings:Hide() end
     if fontList then fontList:Hide() end
     if win then win:Hide() end
@@ -462,6 +486,9 @@ ef:SetScript("OnEvent", function(_, event)
         HideNativeChrome()
         if event == "MAIL_SEND_SUCCESS" and current == "SEND" and SendMailFrame then
             pcall(function() SendMailFrame:Show() end)
+            -- Native reset re-shows the frame; re-assert the flag so the next
+            -- item can still be attached by right-click without a tab bounce.
+            SetSendShowing(true)
         end
     end
 end)
