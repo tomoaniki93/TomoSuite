@@ -1,6 +1,6 @@
 # TomoMail
 
-# ![TomoSync](https://img.shields.io/badge/TomoMail-v2.1.10-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
+# ![TomoSync](https://img.shields.io/badge/TomoMail-v2.1.11-0cd29f?style=for-the-badge) ![WoW](https://img.shields.io/badge/WoW-Midnight-blue?style=for-the-badge) ![Interface](https://img.shields.io/badge/Interface-120007-orange?style=for-the-badge)
 
 > Streamlined in-game mail manager for World of Warcraft — send to your alts, guild members, and recent recipients in seconds.
 
