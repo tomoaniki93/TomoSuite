@@ -118,6 +118,43 @@ local function SkinEditBox(editbox)
     editbox:SetTextColor(0.85, 0.85, 0.85)
 end
 
+--- Reskin a native mail item button (Send/Open attachment) WITHOUT wiping its icon.
+-- The item icon lives on the button's BACKGROUND layer (parentKey "icon"); the old
+-- layer-based strip kept only OVERLAY/ARTWORK and so cleared + hid the icon, leaving a
+-- placed item as its stack count over the dark backdrop (a black square). Protect the
+-- icon by object identity, hide only the ornate quickslot art, lift the icon above the
+-- backdrop (BORDER, so the ARTWORK count still reads on top) and inset it to match the
+-- reader slots.
+local function SkinAttachmentSlot(slot)
+    if not slot then return end
+    local icon = slot.icon or (slot.GetName and _G[(slot:GetName() or "") .. "IconTexture"])
+
+    if slot.GetNormalTexture then
+        local nt = slot:GetNormalTexture()
+        if nt then nt:SetTexture(nil); nt:Hide() end
+    end
+    pcall(function() slot:SetNormalTexture("") end)
+
+    for _, region in pairs({ slot:GetRegions() }) do
+        if region ~= icon and region:IsObjectType("Texture") then
+            local layer = region:GetDrawLayer()
+            if layer ~= "OVERLAY" and layer ~= "ARTWORK" then
+                region:SetTexture(nil); region:SetAtlas(""); region:Hide()
+            end
+        end
+    end
+
+    ApplyDarkBackdrop(slot, UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
+
+    if icon then
+        icon:SetDrawLayer("BORDER")
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", slot, "TOPLEFT", 1, -1)
+        icon:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", -1, 1)
+    end
+end
+
 -- ============================================================
 --  Skin the main MailFrame container
 -- ============================================================
@@ -257,12 +294,7 @@ local function SkinSendMail()
 
     -- Attachment item slots
     for i = 1, ATTACHMENTS_MAX_SEND or 7 do
-        local slot = _G["SendMailAttachment" .. i]
-        if slot then
-            StripTextures(slot, "OVERLAY", "ARTWORK")
-            ApplyDarkBackdrop(slot,
-                UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
-        end
+        SkinAttachmentSlot(_G["SendMailAttachment" .. i])
     end
 
     -- Send & Cancel buttons
@@ -359,12 +391,7 @@ local function SkinOpenMail()
 
     -- Attachment slots
     for i = 1, ATTACHMENTS_MAX_RECEIVE or 16 do
-        local slot = _G["OpenMailAttachmentButton" .. i]
-        if slot then
-            StripTextures(slot, "OVERLAY", "ARTWORK")
-            ApplyDarkBackdrop(slot,
-                UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
-        end
+        SkinAttachmentSlot(_G["OpenMailAttachmentButton" .. i])
     end
 end
 

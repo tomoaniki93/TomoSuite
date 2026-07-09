@@ -107,6 +107,48 @@ local function AddCoinDot(editbox, r, g, b)
     editbox._tomoDot = dot
 end
 
+-- Reskin a native mail item button (SendMailAttachmentN) WITHOUT wiping its icon.
+-- The item icon lives on the button's BACKGROUND layer (parentKey "icon"); the old
+-- reskin kept only the OVERLAY/ARTWORK layers, so the layer-based strip cleared +
+-- Hide()'d the icon texture. When an item is later attached, Blizzard's
+-- SetItemButtonTexture refreshes the icon's texture but does not re-Show the region
+-- we had hidden, so a placed item showed only its stack count (an ARTWORK FontString,
+-- never touched by the texture-only strip) over the dark backdrop — i.e. a black
+-- square. We now protect the icon by object identity, hide only the ornate quickslot
+-- art, lift the icon above the backdrop (BORDER < ARTWORK, so the count still reads on
+-- top), and inset it to match the reader slots (Inbox MakeReaderSlot).
+local function SkinAttachmentSlot(slot)
+    if not slot then return end
+    local icon = slot.icon or (slot.GetName and _G[(slot:GetName() or "") .. "IconTexture"])
+
+    -- Drop Blizzard's quickslot NormalTexture explicitly (some builds expose it only
+    -- via GetNormalTexture, not GetRegions), but never the icon.
+    if slot.GetNormalTexture then
+        local nt = slot:GetNormalTexture()
+        if nt then nt:SetTexture(nil); nt:Hide() end
+    end
+    pcall(function() slot:SetNormalTexture("") end)
+
+    for _, region in pairs({ slot:GetRegions() }) do
+        if region ~= icon and region:IsObjectType("Texture") then
+            local layer = region:GetDrawLayer()
+            if layer ~= "OVERLAY" and layer ~= "ARTWORK" then
+                region:SetTexture(nil); region:SetAtlas(""); region:Hide()
+            end
+        end
+    end
+
+    ApplyDarkBackdrop(slot, UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
+
+    if icon then
+        icon:SetDrawLayer("BORDER")
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", slot, "TOPLEFT", 1, -1)
+        icon:SetPoint("BOTTOMRIGHT", slot, "BOTTOMRIGHT", -1, 1)
+    end
+end
+
 -- ============================================================
 --  Dark body field
 -- ============================================================
@@ -244,11 +286,7 @@ local function StyleOnce()
     -- by a bare dark multiline field in EnsureDarkBody(), called from Mount().
 
     for i = 1, (ATTACHMENTS_MAX_SEND or 12) do
-        local slot = _G["SendMailAttachment" .. i]
-        if slot then
-            StripTextures(slot, "OVERLAY", "ARTWORK")
-            ApplyDarkBackdrop(slot, UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
-        end
+        SkinAttachmentSlot(_G["SendMailAttachment" .. i])
     end
 
     SkinButton(SendMailMailButton, true)

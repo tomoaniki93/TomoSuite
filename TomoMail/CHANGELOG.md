@@ -2,6 +2,16 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.12] - 2026-07-09
+
+### Fixed
+- **Item icons showed as a black square in the Send tab — you saw the stack count but not the icon.** Reported on CurseForge (mrciannu). Root cause: the compose reskin stripped the native `SendMailAttachmentN` item buttons *by draw layer*, keeping only `OVERLAY`/`ARTWORK`. The item icon (`$parentIconTexture`, parentKey `icon`) sits on the `BACKGROUND` layer, so the strip ran `SetTexture(nil)` + `Hide()` on it. The strip runs once at the first Send-tab mount, while the slots are empty, so it looked harmless — but the icon texture region stayed hidden. When an item was later attached, Blizzard's `SetItemButtonTexture` refreshed the icon's *texture* but did not re-`Show()` the region we had hidden, leaving the dark slot backdrop visible with only the stack count painted on top (the count is an `ARTWORK` `FontString`, which the texture-only strip never touches) — exactly the "count, no icon, black square" symptom. Drag- and right-click-to-attach kept working; only the icon render was broken.
+  - `Modules/Compose.lua` — the attachment loop in `StyleOnce` now calls a new `SkinAttachmentSlot` helper that protects the icon **by object identity** (never stripped), hides only Blizzard's ornate quickslot art (including the `NormalTexture`, which some builds expose only through `GetNormalTexture`), applies the dark backdrop, then lifts the icon to the `BORDER` layer (above the `BACKGROUND` backdrop, below the `ARTWORK` count so the count still reads) and insets it 1px with a `0.08–0.92` texcoord to match the reader slots (`Inbox.MakeReaderSlot`).
+  - `Modules/Skin.lua` — the identical latent bug in the classic (non-modern) in-place reskin was fixed the same way, for both the Send (`SendMailAttachmentN`) and Open/reader (`OpenMailAttachmentButtonN`) attachment slots, so it can't resurface if `modernUI` is disabled.
+
+### Changed
+- Version bumped to 2.1.12 (`TomoMail.toc`). Realigned the `version` string in `Core.lua` (used by the load message), which had been left at `2.1.10` when the TOC was bumped to 2.1.11, so both now report `2.1.12`.
+
 ## [2.1.10] - 2026-06-27
 
 ### Fixed
