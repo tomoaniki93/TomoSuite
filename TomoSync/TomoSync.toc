@@ -1,10 +1,10 @@
-## Interface: 120007, 120005, 120000
+## Interface: 120100, 120007
 ## Title: |cFFCC44FFTomo|r|cFFFFFFFFSync|r
 ## Notes: Synchronise sacs, banque et banque Warband sur tous vos personnages — tooltips + fenetre de recherche
 ## Notes-frFR: Synchronise sacs, banque et banque Warband sur tous vos personnages — tooltips + fenetre de recherche
 ## Notes-enUS: Tracks bags, bank and Warband bank across all your characters — tooltips + search window
 ## Author: Tomo
-## Version: 1.4.1
+## Version: 1.5.0
 ## SavedVariables: TomoSyncDB
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## IconTexture: Interface\Icons\Spell_nzinsanity_desynchronized

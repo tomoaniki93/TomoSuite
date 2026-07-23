@@ -23,8 +23,17 @@ local function UpdatePosition()
     if not button then return end
     local angle = math.rad(TS.account.minimap.angle or 215)
     local r = (Minimap:GetWidth() / 2)
+    local x, y = math.cos(angle), math.sin(angle)
+    -- Follow the minimap shape: on a SQUARE minimap (e.g. TomoMod), project the
+    -- point onto the square edge instead of the round radius, so the button sits
+    -- on the border like LibDBIcon-managed buttons do. Round stays unchanged.
+    local shape = (GetMinimapShape and GetMinimapShape()) or "ROUND"
+    if shape == "SQUARE" then
+        local m = math.max(math.abs(x), math.abs(y))
+        if m > 0 then x, y = x / m, y / m end
+    end
     button:ClearAllPoints()
-    button:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * r, math.sin(angle) * r)
+    button:SetPoint("CENTER", Minimap, "CENTER", x * r, y * r)
 end
 
 -- Suit le curseur pendant le glissement (recalcule l'angle).

@@ -3,6 +3,13 @@
 All notable changes to TomoSync are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); this project keeps granular per-file notes.
 
+## [1.5.0] — 2026-07-20
+
+### Fixed
+
+#### Modules/Minimap.lua
+The minimap button now follows the **shape of the minimap**. `UpdatePosition` previously placed the button on a circle of radius `Minimap:GetWidth() / 2`, which left it floating inside the border — or drifting off it — on a **square** minimap (as used by TomoMod). The saved angle is now projected onto the square edge by normalising the direction vector with `max(|cos|, |sin|)` whenever `GetMinimapShape()` reports `"SQUARE"`, so the button sits flush on the border exactly like LibDBIcon-managed buttons do. Round minimaps are unaffected, and the shape lookup is guarded so the absence of `GetMinimapShape` simply falls back to `"ROUND"`.
+
 ## [1.4.0] — 2026-06-25
 
 ### Added
