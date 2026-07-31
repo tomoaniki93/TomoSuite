@@ -3,6 +3,41 @@
 All notable changes to TomoSync are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/); this project keeps granular per-file notes.
 
+## [1.6.0] — 2026-07-30
+
+### Added
+
+#### Modules/Currency.lua *(new file)*
+A **Currencies** module: scanner, browser page and tooltip, all self-contained so no existing module needed restructuring.
+
+**Scanner.** WoW exposes no "list every currency I own" getter, so the data comes from the client's currency list (`C_CurrencyInfo.GetCurrencyListSize` / `GetCurrencyListInfo`). That list omits the contents of **collapsed** category headers, so the scan temporarily expands every collapsed header, reads the list, then restores the exact initial state — each expand/collapse shifts the indices, so the loop restarts from the top after every action and is bounded by an iteration guard. The pass is skipped entirely while Blizzard's own currency panel (`TokenFrame`) is open, so the player never sees their sections flicker. The list API does not expose the currency ID either: it is parsed out of `GetCurrencyListLink` (`currency:<id>`). Quantities are stored per character under `entry.currency[currencyID]`; names, icons, quality and the `isAccountWide` flag are stored once, account-wide, under `_account.currency.info`, alongside `_account.currency.cats` which preserves the game's own category order (Midnight, Season 1, Miscellaneous, Dungeons & Raids, PvP…). An empty read — the list is not yet populated right after login — never overwrites existing data. Scanning is driven by `CURRENCY_DISPLAY_UPDATE` (1 s debounce, re-entrancy flag, 3 s throttle) plus a forced pass 3 s after entering the world.
+
+**Browser page.** A fourth tab (**Items** / **Gold** / **Time** / **Currencies**) opens a two-pane view built on the same geometry as the Items view: a collapsible accordion on the left, grouped by the game's own category headers and showing each currency's icon, quality-coloured name and cross-character total; a detail pane on the right listing every character holding it, class-coloured and sorted descending, with a **Total**. Account-wide currencies are *not* summed — the largest known value is shown on a cyan **Account** row carrying the same *shared* pill as the Warband bank line. Hovering a row shows the real currency tooltip via `SetCurrencyByID`. The page reuses the window's search box (its placeholder swaps to *"Search for a currency…"*) and the footer counter.
+
+**Tooltip.** `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, …)` appends the per-character breakdown to any currency tooltip — the in-game currency panel, a chat link, a vendor's cost line — mirroring the item tooltip layout (class-coloured names, purple total, cyan shared line for account-wide currencies).
+
+Every `C_CurrencyInfo` call is wrapped in `pcall` and every returned value passes through an `issecretvalue()` guard before any comparison, addition or `string.format`, per the suite's Midnight rules.
+
+#### Locales/*.lua
+Added 9 keys (`TAB_CURRENCY`, `SEARCH_CURRENCY`, `CUR_QUANTITY`, `CUR_ACCOUNT`, `CUR_CAP`, `CUR_HINT`, `CUR_TRACKED`, `CFG_HIDE_ZERO`, `CFG_HIDE_ZERO_TT`) to all six locales (parity now 60 keys each).
+
+### Changed
+
+#### Modules/Browser.lua
+Added the **Currencies** tab and wired the view switch, refresh and search box to the new module. `SwitchView` now hides the currency page from the other three branches, re-shows the search box and footer counter for the currency view (both are hidden by `HideItemsView`), and clears the search box whenever the active tab changes — the box is shared between the Items and Currencies views, so leaving text behind would have applied a phantom filter to the view being entered. `Browser:Refresh` forwards to `Currency:Refresh`, the search box's `OnTextChanged` forwards to `Currency:SetSearch` while the currency view is active, and the **Force scan** button now also triggers a currency scan. The currency page itself is built by `Currency:BuildPage(frame)` during `Build`, so Browser owns no currency widgets.
+
+#### Config.lua
+New checkbox **Hide zero-quantity currencies** (default on) which filters out currencies whose total across the displayed characters is zero — without it the list mirrors the game panel exactly, including greyed-out zero rows. The panel grew from 426 to 454 px and the separator/threshold slider below it shifted by 28 px accordingly. The **Force scan** button also refreshes currencies.
+
+#### Core.lua
+`/tms scan` now forces a currency scan alongside bags and equipment.
+
+#### Database.lua
+Added the `hideZeroCur` default (per-character settings) and documented the new `currency` tables in the SavedVariables layout comment.
+
+#### TomoSync.toc
+Version 1.6.0; `Modules\Currency.lua` loads after `Modules\Tooltip.lua` and before `Modules\Browser.lua`.
+
 ## [1.5.0] — 2026-07-20
 
 ### Fixed

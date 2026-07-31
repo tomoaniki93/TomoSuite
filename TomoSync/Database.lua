@@ -8,6 +8,10 @@
                 lastScan = <timestamp>,
                 items    = { [itemID] = count },   -- banque Warband (partagee, account-wide)
             },
+            currency = {                          -- metadonnees monnaies (1.6.0)
+                info = { [currencyID] = { name, icon, quality, account } },
+                cats = { { name = "<categorie>", ids = { currencyID, ... } }, ... },
+            },
         },
         ["Nom du Royaume"] = {
             ["NomDuPerso"] = {
@@ -16,6 +20,7 @@
                 lastScan = <timestamp>,
                 settings = { ... },                -- reglages par personnage
                 items    = { [itemID] = { bags=N, bank=N, equip=N } },
+                currency = { [currencyID] = quantity },   -- monnaies (1.6.0)
             },
         },
     }
@@ -33,4 +38,5 @@ TomoSyncDB_Defaults = {
     showTotal   = true,
     onlyRealm   = true,
     threshold   = 0,
+    hideZeroCur = true,
 }

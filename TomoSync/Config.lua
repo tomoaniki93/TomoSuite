@@ -32,7 +32,7 @@ StaticPopupDialogs["TOMOSYNC_CLEAR"] = {
 
 local function Build()
     panel = CreateFrame("Frame", "TomoSyncConfigPanel", UIParent, "BackdropTemplate")
-    panel:SetSize(420, 426)
+    panel:SetSize(420, 454)
     panel:SetPoint("CENTER", 80, 0)
     panel:SetFrameStrata("DIALOG")
     panel:SetMovable(true)
@@ -94,9 +94,15 @@ local function Build()
         end)
     mmCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -236)
 
+    -- Masquer les monnaies dont le total est nul (vue Monnaies)
+    local zeroCb = UI.CreateCheckbox(panel, TS:L("CFG_HIDE_ZERO"), TS:L("CFG_HIDE_ZERO_TT"),
+        function() return TS.db.settings.hideZeroCur end,
+        function(v) TS.db.settings.hideZeroCur = v; ApplyChange() end)
+    zeroCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -264)
+
     -- Separateur
     local sep2 = UI.CreateSeparator(panel, { 1, 1, 1 }, 0.10)
-    sep2:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -266)
+    sep2:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -294)
     sep2:SetPoint("RIGHT", panel, "TOPRIGHT", -20, 0)
 
     -- Curseur seuil
@@ -105,7 +111,7 @@ local function Build()
         function() return TS.db.settings.threshold or 0 end,
         function(v) TS.db.settings.threshold = v end,
         ApplyChange)
-    slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -280)
+    slider:SetPoint("TOPLEFT", panel, "TOPLEFT", 22, -308)
 
     -- ----- Pied de page -----
     local footSep = UI.CreateSeparator(panel, UI.PURPLE, 0.40)
@@ -119,6 +125,8 @@ local function Build()
         if sc then
             sc:ScanBags(); sc:ScanEquipped()
             if sc.atBank then sc:ScanBank(); sc:ScanWarband() end
+            local cur = TS.modules["Currency"]
+            if cur and cur.Scan then cur:Scan(true) end
             TS:Print(TS:L("SCAN_BAGS_DONE"))
         end
     end)

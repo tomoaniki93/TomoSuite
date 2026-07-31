@@ -22,9 +22,9 @@ local itemCount = 0
 local searchText = ""
 local selectedID = nil
 
--- Onglets / vue Or / vue Temps
-local currentView = "items"        -- "items" | "gold" | "time"
-local tabItems, tabGold, tabTime
+-- Onglets / vue Or / vue Temps / vue Monnaies
+local currentView = "items"        -- "items" | "gold" | "time" | "currency"
+local tabItems, tabGold, tabTime, tabCur
 local goldPage, goldScroll
 local goldRows = {}
 local goldList = {}
@@ -552,27 +552,54 @@ local function SetTabVisual(tab, active)
 end
 
 function SwitchView(view)
+    local cur = TS.modules["Currency"]
+
+    -- Le champ de recherche est partage entre les vues Objets et Monnaies :
+    -- on le vide au changement d'onglet pour eviter un filtre fantome.
+    if frame and frame.search and currentView ~= view then
+        frame.search:SetText("")
+        searchText = ""
+        if cur and cur.SetSearch then cur:SetSearch("") end
+    end
+
     currentView = view
+    if frame and frame.searchPH then
+        frame.searchPH:SetText(view == "currency" and TS:L("SEARCH_CURRENCY") or TS:L("SEARCH_PLACEHOLDER"))
+    end
     SetTabVisual(tabItems, view == "items")
     SetTabVisual(tabGold,  view == "gold")
     SetTabVisual(tabTime,  view == "time")
+    SetTabVisual(tabCur,   view == "currency")
     if view == "gold" then
         StopPlayedTicker()
         HideItemsView()
         if playedPage then playedPage:Hide() end
+        if cur and cur.HidePage then cur:HidePage() end
         goldPage:Show()
         UpdateGold()
     elseif view == "time" then
         HideItemsView()
         goldPage:Hide()
+        if cur and cur.HidePage then cur:HidePage() end
         playedPage:Show()
         BuildPlayed()
         UpdatePlayed()
         StartPlayedTicker()
+    elseif view == "currency" then
+        StopPlayedTicker()
+        HideItemsView()
+        goldPage:Hide()
+        if playedPage then playedPage:Hide() end
+        -- La vue Monnaies reutilise le champ de recherche et le compteur du pied
+        -- de page, tous deux masques par HideItemsView.
+        if frame.search then frame.search:Show() end
+        if frame.countLabel then frame.countLabel:Show() end
+        if cur and cur.ShowPage then cur:ShowPage() end
     else
         StopPlayedTicker()
         goldPage:Hide()
         if playedPage then playedPage:Hide() end
+        if cur and cur.HidePage then cur:HidePage() end
         if frame.search then frame.search:Show() end
         if scrollFrame then scrollFrame:Show() end
         if frame.vline then frame.vline:Show() end
@@ -597,6 +624,11 @@ function Browser:Refresh()
     if currentView == "time" then
         BuildPlayed()
         UpdatePlayed()
+        return
+    end
+    if currentView == "currency" then
+        local cur = TS.modules["Currency"]
+        if cur and cur.Refresh then cur:Refresh() end
         return
     end
     BuildItemList()
@@ -677,12 +709,20 @@ local function Build()
     ph:SetPoint("LEFT", 10, 0)
     ph:SetText(TS:L("SEARCH_PLACEHOLDER"))
 
+    frame.searchPH = ph
+
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     search:SetScript("OnEditFocusGained", function() ph:Hide() end)
     search:SetScript("OnEditFocusLost", function(self) if self:GetText() == "" then ph:Show() end end)
     search:SetScript("OnTextChanged", function(self)
         if not scrollFrame then return end
+        -- La vue Monnaies partage le meme champ de recherche.
+        if currentView == "currency" then
+            local cur = TS.modules["Currency"]
+            if cur and cur.SetSearch then cur:SetSearch(self:GetText() or "") end
+            return
+        end
         searchText = self:GetText() or ""
         BuildItemList()
         local sb = _G["TomoSyncBrowserScrollScrollBar"]
@@ -1089,6 +1129,14 @@ local function Build()
     end
 
     -- ============================================================
+    --  Page Monnaies (construite par Modules/Currency.lua, cachee par defaut)
+    -- ============================================================
+    do
+        local cur = TS.modules["Currency"]
+        if cur and cur.BuildPage then cur:BuildPage(frame) end
+    end
+
+    -- ============================================================
     --  Pied de page : separateur + onglets + boutons
     -- ============================================================
     local footSep = UI.CreateSeparator(frame, { 0.2, 0.2, 0.24 }, 1)
@@ -1125,6 +1173,8 @@ local function Build()
     tabGold:SetPoint("LEFT", tabItems, "RIGHT", 4, 0)
     tabTime = MakeTab(TS:L("TAB_TIME"), function() SwitchView("time") end)
     tabTime:SetPoint("LEFT", tabGold, "RIGHT", 4, 0)
+    tabCur = MakeTab(TS:L("TAB_CURRENCY"), function() SwitchView("currency") end)
+    tabCur:SetPoint("LEFT", tabTime, "RIGHT", 4, 0)
 
     -- Boutons
     local scanBtn = UI.CreateButton(frame, TS:L("BTN_SCAN"), 130, 24)
@@ -1134,6 +1184,8 @@ local function Build()
         if sc then
             sc:ScanBags(); sc:ScanEquipped(); sc:ScanMoney()
             if sc.atBank then sc:ScanBank(); sc:ScanWarband() end
+            local cur = TS.modules["Currency"]
+            if cur and cur.Scan then cur:Scan(true) end
             TS:Print(TS:L("SCAN_BAGS_DONE"))
             Browser:Refresh()
         end

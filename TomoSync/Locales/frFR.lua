@@ -57,4 +57,14 @@ TomoSyncLocale = {
     TIME_D          = "j",
     TIME_H          = "h",
     TIME_M          = "m",
+    -- Monnaies (1.6.0)
+    SEARCH_CURRENCY = "Rechercher une monnaie…",
+    TAB_CURRENCY    = "Monnaies",
+    CUR_QUANTITY    = "Quantité",
+    CUR_ACCOUNT     = "Compte",
+    CUR_CAP         = "Plafond :",
+    CUR_HINT        = "Sélectionnez une monnaie pour voir quels personnages la possèdent.",
+    CUR_TRACKED     = "%d monnaies suivies",
+    CFG_HIDE_ZERO   = "Masquer les monnaies à 0",
+    CFG_HIDE_ZERO_TT= "Masque les monnaies dont le total sur les personnages affichés est nul.",
 }

@@ -57,4 +57,14 @@ TomoSyncLocale = {
     TIME_D          = "T",
     TIME_H          = "h",
     TIME_M          = "m",
+    -- Monnaies (1.6.0)
+    SEARCH_CURRENCY = "Währung suchen…",
+    TAB_CURRENCY    = "Währungen",
+    CUR_QUANTITY    = "Menge",
+    CUR_ACCOUNT     = "Account",
+    CUR_CAP         = "Limit:",
+    CUR_HINT        = "Wählt eine Währung, um zu sehen, welche Charaktere sie besitzen.",
+    CUR_TRACKED     = "%d Währungen erfasst",
+    CFG_HIDE_ZERO   = "Währungen mit 0 ausblenden",
+    CFG_HIDE_ZERO_TT= "Blendet Währungen aus, deren Gesamtmenge über die angezeigten Charaktere null ist.",
 }

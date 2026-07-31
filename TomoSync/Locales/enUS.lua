@@ -58,6 +58,16 @@ local defaults = {
     TIME_D          = "d",
     TIME_H          = "h",
     TIME_M          = "m",
+    -- Monnaies (1.6.0)
+    SEARCH_CURRENCY = "Search for a currency…",
+    TAB_CURRENCY    = "Currencies",
+    CUR_QUANTITY    = "Quantity",
+    CUR_ACCOUNT     = "Account",
+    CUR_CAP         = "Cap:",
+    CUR_HINT        = "Select a currency to see which characters hold it.",
+    CUR_TRACKED     = "%d currencies tracked",
+    CFG_HIDE_ZERO   = "Hide zero-quantity currencies",
+    CFG_HIDE_ZERO_TT= "Hides currencies whose total across the displayed characters is zero.",
 }
 
 TomoSyncLocale = TomoSyncLocale or {}

@@ -331,6 +331,8 @@ SlashCmdList["TOMOSYNC"] = function(msg)
         if scanner then
             scanner:ScanBags()
             scanner:ScanEquipped()
+            local cur = TS.modules["Currency"]
+            if cur and cur.Scan then cur:Scan(true) end
             TS:Print(TS:L("SCAN_BAGS_DONE"))
         end
     elseif cmd == "config" or cmd == "options" or cmd == "settings" then
