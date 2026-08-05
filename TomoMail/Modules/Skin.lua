@@ -39,8 +39,68 @@ local function StripTextures(frame, ...)
     end
 end
 
+--- Unpack a UI.COLORS entry into r, g, b, a (alpha defaults to 1)
+local function Unpack(c)
+    if type(c) ~= "table" then return 1, 1, 1, 1 end
+    return c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
+end
+
+--- Colour the text of an arbitrary widget without assuming it is a FontString.
+-- Blizzard periodically converts plain mail labels into composite widgets
+-- (Midnight turned OpenMailSender into a container that no longer exposes
+-- SetTextColor), which made a blind obj:SetTextColor() raise
+-- "attempt to call a nil value" and abort the whole OpenMail section.
+-- Resolution order: direct method -> common text sub-widgets -> button font
+-- string -> every FontString region parented to the widget.
+local function SetTextColorSafe(obj, r, g, b, a)
+    if type(obj) ~= "table" then return false end
+    a = a or 1
+
+    -- 1. Real FontString / EditBox / anything exposing the method
+    if type(obj.SetTextColor) == "function" then
+        if pcall(obj.SetTextColor, obj, r, g, b, a) then return true end
+    end
+
+    -- 2. Common parentKey text children on composite widgets
+    for _, key in ipairs({ "Text", "text", "Label", "label", "Name", "Title" }) do
+        local child = rawget(obj, key)
+        if type(child) == "table" and type(child.SetTextColor) == "function" then
+            if pcall(child.SetTextColor, child, r, g, b, a) then return true end
+        end
+    end
+
+    -- 3. Button-style font string
+    if type(obj.GetFontString) == "function" then
+        local ok, fs = pcall(obj.GetFontString, obj)
+        if ok and type(fs) == "table" and type(fs.SetTextColor) == "function" then
+            if pcall(fs.SetTextColor, fs, r, g, b, a) then return true end
+        end
+    end
+
+    -- 4. Fall back to every FontString region under the widget
+    if type(obj.GetRegions) == "function" then
+        local applied = false
+        local ok, regions = pcall(function() return { obj:GetRegions() } end)
+        if ok then
+            for _, region in pairs(regions) do
+                if type(region) == "table" and region.IsObjectType
+                   and region:IsObjectType("FontString") then
+                    pcall(region.SetTextColor, region, r, g, b, a)
+                    applied = true
+                end
+            end
+        end
+        return applied
+    end
+
+    return false
+end
+
 --- Apply dark backdrop to a frame
 local function ApplyDarkBackdrop(frame, r, g, b, a, br, bg, bb)
+    -- Only real Frames can carry a backdrop; FontStrings/Textures must be skipped
+    if type(frame) ~= "table" or type(frame.HookScript) ~= "function" then return end
+
     r  = r  or UI.COLORS.bg[1]
     g  = g  or UI.COLORS.bg[2]
     b  = b  or UI.COLORS.bg[3]
@@ -68,22 +128,9 @@ local function SkinButton(btn, isPrimary)
     ApplyDarkBackdrop(btn,
         UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
 
-    if btn.Text then
-        if isPrimary then
-            btn.Text:SetTextColor(unpack(UI.COLORS.accent))
-        else
-            btn.Text:SetTextColor(unpack(UI.COLORS.text))
-        end
-    elseif btn.GetFontString then
-        local fs = btn:GetFontString()
-        if fs then
-            if isPrimary then
-                fs:SetTextColor(unpack(UI.COLORS.accent))
-            else
-                fs:SetTextColor(unpack(UI.COLORS.text))
-            end
-        end
-    end
+    SetTextColorSafe(btn, Unpack(isPrimary and UI.COLORS.accent or UI.COLORS.text))
+
+    if type(btn.HookScript) ~= "function" then return end
 
     btn:HookScript("OnEnter", function(self)
         self:SetBackdropBorderColor(unpack(UI.COLORS.accent))
@@ -115,7 +162,7 @@ local function SkinEditBox(editbox)
     ApplyDarkBackdrop(editbox,
         UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
 
-    editbox:SetTextColor(0.85, 0.85, 0.85)
+    SetTextColorSafe(editbox, 0.85, 0.85, 0.85)
 end
 
 --- Reskin a native mail item button (Send/Open attachment) WITHOUT wiping its icon.
@@ -170,9 +217,7 @@ local function SkinMailFrame()
     ApplyDarkBackdrop(mf)
 
     -- Title text
-    if MailFrameTitleText then
-        MailFrameTitleText:SetTextColor(unpack(UI.COLORS.accent))
-    end
+    SetTextColorSafe(MailFrameTitleText, Unpack(UI.COLORS.accent))
 
     -- Close button — leave untouched so the X stays visible
     -- (Blizzard close buttons use Normal/Pushed/Highlight textures)
@@ -185,8 +230,7 @@ local function SkinMailFrame()
             ApplyDarkBackdrop(tab,
                 UI.COLORS.bgLight[1], UI.COLORS.bgLight[2], UI.COLORS.bgLight[3], 1)
 
-            local fs = tab:GetFontString()
-            if fs then fs:SetTextColor(unpack(UI.COLORS.text)) end
+            SetTextColorSafe(tab, Unpack(UI.COLORS.text))
 
             tab:HookScript("OnEnter", function(self)
                 self:SetBackdropBorderColor(unpack(UI.COLORS.accent))
@@ -240,15 +284,8 @@ local function SkinInbox()
             end
 
             -- Color the sender/subject text
-            local sender = _G["MailItem" .. i .. "Sender"]
-            if sender then
-                sender:SetTextColor(0.85, 0.85, 0.85)
-            end
-
-            local subject = _G["MailItem" .. i .. "Subject"]
-            if subject then
-                subject:SetTextColor(unpack(UI.COLORS.textDim))
-            end
+            SetTextColorSafe(_G["MailItem" .. i .. "Sender"], 0.85, 0.85, 0.85)
+            SetTextColorSafe(_G["MailItem" .. i .. "Subject"], Unpack(UI.COLORS.textDim))
         end
     end
 
@@ -288,9 +325,7 @@ local function SkinSendMail()
     end
 
     -- Body editbox
-    if SendMailBodyEditBox then
-        SendMailBodyEditBox:SetTextColor(0.8, 0.8, 0.8)
-    end
+    SetTextColorSafe(SendMailBodyEditBox, 0.8, 0.8, 0.8)
 
     -- Attachment item slots
     for i = 1, ATTACHMENTS_MAX_SEND or 7 do
@@ -303,21 +338,15 @@ local function SkinSendMail()
 
     -- Stationery / radio buttons for COD / money
     pcall(function()
-        if SendMailSendMoneyButton then
-            local fs = SendMailSendMoneyButton:GetFontString() or _G["SendMailSendMoneyButtonText"]
-            if fs then fs:SetTextColor(unpack(UI.COLORS.text)) end
-        end
-        if SendMailCODButton then
-            local fs = SendMailCODButton:GetFontString() or _G["SendMailCODButtonText"]
-            if fs then fs:SetTextColor(unpack(UI.COLORS.text)) end
-        end
+        SetTextColorSafe(SendMailSendMoneyButton or _G["SendMailSendMoneyButtonText"],
+            Unpack(UI.COLORS.text))
+        SetTextColorSafe(SendMailCODButton or _G["SendMailCODButtonText"],
+            Unpack(UI.COLORS.text))
     end)
 
     -- "Montant à envoyer" label
     pcall(function()
-        if SendMailMoneyText then
-            SendMailMoneyText:SetTextColor(unpack(UI.COLORS.textDim))
-        end
+        SetTextColorSafe(SendMailMoneyText, Unpack(UI.COLORS.textDim))
     end)
 
     -- "Port:" cost label
@@ -344,20 +373,13 @@ local function SkinOpenMail()
     StripTextures(om)
     ApplyDarkBackdrop(om)
 
-    -- Title
-    if OpenMailFrameTitleText then
-        OpenMailFrameTitleText:SetTextColor(unpack(UI.COLORS.accent))
-    end
-
-    -- Sender
-    if OpenMailSender then
-        OpenMailSender:SetTextColor(0.85, 0.85, 0.85)
-    end
-
-    -- Subject
-    if OpenMailSubject then
-        OpenMailSubject:SetTextColor(unpack(UI.COLORS.text))
-    end
+    -- Header labels. These are resolved through SetTextColorSafe because
+    -- Blizzard changed several of them from FontStrings to composite widgets.
+    SetTextColorSafe(OpenMailFrameTitleText, Unpack(UI.COLORS.accent))
+    SetTextColorSafe(OpenMailSender,         0.85, 0.85, 0.85)
+    SetTextColorSafe(OpenMailSenderLabel,    Unpack(UI.COLORS.textDim))
+    SetTextColorSafe(OpenMailSubject,        Unpack(UI.COLORS.text))
+    SetTextColorSafe(OpenMailSubjectLabel,   Unpack(UI.COLORS.textDim))
 
     -- Body scroll
     if OpenMailScrollFrame then
@@ -367,9 +389,7 @@ local function SkinOpenMail()
     end
 
     -- Body text
-    if OpenMailBodyText then
-        OpenMailBodyText:SetTextColor(0.8, 0.8, 0.8)
-    end
+    SetTextColorSafe(OpenMailBodyText, 0.8, 0.8, 0.8)
 
     -- Buttons
     SkinButton(OpenMailReplyButton, true)
@@ -377,7 +397,6 @@ local function SkinOpenMail()
     SkinButton(OpenMailCancelButton)
     SkinButton(OpenMailReportSpamButton)
 
-    -- Close button
     -- Close button — leave untouched so the X stays visible
 
     -- Money frame

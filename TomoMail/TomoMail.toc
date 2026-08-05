@@ -1,10 +1,10 @@
-## Interface: 120007, 120005
+## Interface: 120100, 120007
 ## Title: |cffCC44FFTomo|r|cffFFFFFFMail|r
 ## Notes: Gestionnaire de courrier avancé — Alts, Guilde, Envoi rapide
 ## Notes-frFR: Gestionnaire de courrier avancé — Alts, Guilde, Envoi rapide
 ## Notes-enUS: Advanced mail manager — Alts, Guild, Quick Send
 ## Author: Tomo
-## Version: 2.1.12
+## Version: 2.1.13
 ## SavedVariables: TomoMailDB
 ## Category: |cffCC44FFTomo|r|cffFFFFFFSuite|r
 ## IconTexture: Interface\Icons\Inv_misc_blizzcon09_poster

@@ -2,6 +2,19 @@
 
 All notable changes to TomoMail will be documented in this file.
 
+## [2.1.13] - 2026-08-05
+
+### Fixed
+- **`Skin.lua:354: attempt to call a nil value` on every login / first mailbox open, printed as `TomoMail Skin OpenMail:`.** Root cause: `SkinOpenMail` assumed `OpenMailSender` was still a plain `FontString` and called `OpenMailSender:SetTextColor(...)` directly. In the Midnight client that global is no longer a `FontString` — the widget still exists (so the `if OpenMailSender then` guard passed) but it no longer exposes `SetTextColor`, so indexing the method returned `nil` and calling it raised the error. Because `ApplySkin` wraps each section in a single `pcall`, the failure aborted the *whole* OpenMail section: everything after line 354 (subject colour, body scroll backdrop, body text, Reply/Delete/Cancel/Report buttons, money frame and the 16 reader attachment slots) was silently never skinned, leaving the native reader half-Blizzard/half-dark on the rare dialogs that still use it.
+  - `Modules/Skin.lua` — added a `SetTextColorSafe(obj, r, g, b, a)` helper that never assumes a widget type. Resolution order: (1) call `SetTextColor` directly when the widget exposes it, (2) look for a text sub-widget on the usual parentKeys (`Text`, `text`, `Label`, `label`, `Name`, `Title`), (3) fall back to `GetFontString()` for button-style widgets, (4) as a last resort colour every `FontString` region parented to the widget. Every step is `pcall`-guarded and the helper returns a boolean instead of erroring, so a future Blizzard widget swap degrades to "text keeps its default colour" rather than killing the section.
+  - `Modules/Skin.lua` — every blind `:SetTextColor()` on a Blizzard global now goes through the helper: `MailFrameTitleText`, `MailFrameTabN`, `MailItemNSender`/`MailItemNSubject`, `SendMailBodyEditBox`, `SendMailSendMoneyButton`, `SendMailCODButton`, `SendMailMoneyText`, `OpenMailFrameTitleText`, `OpenMailSender`, `OpenMailSubject`, `OpenMailBodyText` and the edit boxes skinned by `SkinEditBox`. The same class of error can therefore no longer be triggered by any other renamed/retyped mail widget.
+  - `Modules/Skin.lua` — `OpenMailSenderLabel` and `OpenMailSubjectLabel` are now dimmed as well, which the old code never touched.
+  - `Modules/Skin.lua` — `ApplyDarkBackdrop` now returns early unless the target really is a Frame (`type(frame.HookScript) == "function"`), instead of running `Mixin(frame, BackdropTemplateMixin)` + `HookScript` on whatever it is handed. Passing a `FontString`/`Texture` used to throw a second, less obvious error.
+  - `Modules/Skin.lua` — `SkinButton` uses the same helper for its label and bails out before the `OnEnter`/`OnLeave` hooks if the object is not a real Button, so a retyped Blizzard button can no longer error either.
+
+### Changed
+- Version bumped to 2.1.13 (`TomoMail.toc` and the matching `version` string in `Core.lua` used by the load message).
+
 ## [2.1.12] - 2026-07-09
 
 ### Fixed
